@@ -1,4 +1,5 @@
 # Scentsibility
+https://scentsibility.vercel.app/
 
 A price comparison site for niche and designer fragrances. It scrapes prices from 10 online retailers, keeps them in one catalog, tracks how each price moves over time, and emails you when something on your watchlist hits a new best deal.
 
@@ -40,6 +41,7 @@ Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with J
 - Web: Next.js 14 (App Router), React server components, Tailwind, Recharts, NextAuth
 - Data: Postgres on Supabase, Redis on Upstash
 - Email: Resend
+  
 
 ## Running it locally
 
