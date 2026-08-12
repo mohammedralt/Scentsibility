@@ -41,7 +41,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold">Welcome back</h1>
-          <p className="text-sm text-gray-500 mt-1">Sign in to your FragranceTrack account</p>
+          <p className="text-sm text-gray-500 mt-1">Sign in to your Scentsibility account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 flex flex-col gap-4">

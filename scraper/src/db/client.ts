@@ -9,8 +9,12 @@ export function getPool(): Pool {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       max: 10,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
+      // Recycle idle connections quickly so the Supabase transaction pooler
+      // doesn't close them out from under us mid-run ("Connection terminated
+      // unexpectedly"). keepAlive holds the TCP socket open between queries.
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 10_000,
+      keepAlive: true,
     });
     pool.on('error', (err) => logger.error({ err }, 'Unexpected pool error'));
   }
@@ -139,14 +143,21 @@ export async function getPriceHistory(trackedProductId: string, limitDays = 90) 
 
 // ─── Watchlist / notifications ───────────────────────────────────────────────
 
-export async function getWatchersToNotify(
-  fragranceId: string,
-  newPrice: number,
-  currency: string,
-  trackedProductId: string
-) {
-  // Find users who watch this fragrance and haven't been notified for this
-  // product at this price level in the last 24 hours
+// The lowest currently-listed price for a fragrance across all its tracked
+// retailers — this is what "new best deal" is measured against.
+export async function getFragranceBestPrice(fragranceId: string): Promise<number | null> {
+  const { rows } = await getPool().query<{ min: string | null }>(
+    `SELECT MIN(last_price)::text AS min FROM tracked_products
+     WHERE fragrance_id = $1 AND last_price IS NOT NULL`,
+    [fragranceId]
+  );
+  return rows[0]?.min != null ? parseFloat(rows[0].min) : null;
+}
+
+export async function getWatchersToNotify(fragranceId: string, newBestPrice: number) {
+  // Find users watching this fragrance whose threshold the new best price clears
+  // (no threshold = any new best deal qualifies), and who haven't already been
+  // emailed about this fragrance in the last 24 hours.
   const { rows } = await getPool().query(
     `SELECT wi.id AS watchlist_item_id, wi.user_id, u.email, wi.alert_threshold
      FROM watchlist_items wi
@@ -157,10 +168,9 @@ export async function getWatchersToNotify(
        AND NOT EXISTS (
          SELECT 1 FROM notifications_sent ns
          WHERE ns.watchlist_item_id = wi.id
-           AND ns.tracked_product_id = $3
            AND ns.sent_at >= NOW() - INTERVAL '24 hours'
        )`,
-    [fragranceId, newPrice, trackedProductId]
+    [fragranceId, newBestPrice]
   );
   return rows;
 }

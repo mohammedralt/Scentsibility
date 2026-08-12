@@ -41,14 +41,30 @@ function isRelevantResult(product: ProductListing, fragranceName: string, brand:
 
 async function main() {
   const args = process.argv.slice(2);
-  const retailerArg = args[args.indexOf('--retailer') + 1];
-  const limitArg = parseInt(args[args.indexOf('--limit') + 1]) || 0;
+  // Read a flag's value only when the flag is actually present, so other flags
+  // (e.g. --missing) aren't mistaken for its value.
+  const flagValue = (flag: string): string | undefined => {
+    const i = args.indexOf(flag);
+    return i >= 0 ? args[i + 1] : undefined;
+  };
+  const retailerArg = flagValue('--retailer');
+  const limitArg = parseInt(flagValue('--limit') ?? '') || 0;
+  // --missing: only fragrances that don't already have a live price. Makes the
+  // run resumable — relaunch after a connection drop and it picks up the rest.
+  const missingOnly = args.includes('--missing');
 
   const retailerKeys = retailerArg ? [retailerArg] : getRetailerKeys();
 
-  // Load all seeded fragrances
+  // Load fragrances to price (all, or only those still lacking a price)
   const { rows: fragrances } = await getPool().query<{ id: string; name: string; brand: string }>(
-    `SELECT id, name, brand FROM fragrances ORDER BY brand, name`
+    missingOnly
+      ? `SELECT id, name, brand FROM fragrances f
+         WHERE NOT EXISTS (
+           SELECT 1 FROM tracked_products tp
+           WHERE tp.fragrance_id = f.id AND tp.last_price IS NOT NULL
+         )
+         ORDER BY brand, name`
+      : `SELECT id, name, brand FROM fragrances ORDER BY brand, name`
   );
 
   const toProcess = limitArg ? fragrances.slice(0, limitArg) : fragrances;

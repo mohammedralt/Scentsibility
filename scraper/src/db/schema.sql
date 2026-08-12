@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS watchlist_items (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   fragrance_id      UUID NOT NULL REFERENCES fragrances (id) ON DELETE CASCADE,
-  alert_threshold   NUMERIC(10, 2),     -- null = notify on any price drop
+  alert_threshold   NUMERIC(10, 2),     -- null = notify on any new best deal; set = only once it's at/below this price
   notify_email      BOOLEAN NOT NULL DEFAULT true,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (user_id, fragrance_id)

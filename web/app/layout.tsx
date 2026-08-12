@@ -4,10 +4,10 @@ import { Header } from '@/components/Header';
 import { auth } from '@/lib/auth';
 
 export const metadata: Metadata = {
-  title: { default: 'FragranceTrack — Compare Fragrance Prices', template: '%s | FragranceTrack' },
+  title: { default: 'Scentsibility — Compare Fragrance Prices', template: '%s | Scentsibility' },
   description: 'Track prices on your favourite fragrances across all major retailers. Get alerts when prices drop.',
   openGraph: {
-    siteName: 'FragranceTrack',
+    siteName: 'Scentsibility',
     type: 'website',
   },
 };
@@ -22,7 +22,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main className="flex-1">{children}</main>
         <footer className="border-t border-gray-200 dark:border-gray-800 py-8 mt-16">
           <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} FragranceTrack — Prices updated every 12 hours.
+            © {new Date().getFullYear()} Scentsibility — Prices updated every 12 hours.
             Not affiliated with any retailer.
           </div>
         </footer>

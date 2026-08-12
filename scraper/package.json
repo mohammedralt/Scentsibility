@@ -1,5 +1,5 @@
 {
-  "name": "fragrance-scraper",
+  "name": "scentsibility-scraper",
   "version": "1.0.0",
   "description": "Price scraping service for fragrance retailers",
   "main": "dist/index.js",

@@ -31,7 +31,7 @@ export function Header({ session }: HeaderProps) {
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4">
         {/* Logo */}
         <Link href="/" className="flex-shrink-0 font-bold text-lg text-brand-700 dark:text-brand-400 tracking-tight">
-          FragranceTrack
+          Scentsibility
         </Link>
 
         {/* Search */}

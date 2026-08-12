@@ -12,6 +12,7 @@ interface PriceAlertParams {
   currency: string;
   productUrl: string;
   threshold: number | null;
+  previousBest: number | null;
 }
 
 export async function sendPriceAlert(params: PriceAlertParams): Promise<void> {
@@ -20,12 +21,13 @@ export async function sendPriceAlert(params: PriceAlertParams): Promise<void> {
 
   const fromEmail = process.env.EMAIL_FROM ?? 'alerts@yourdomain.com';
   const formattedPrice = `${params.currency} $${params.price.toFixed(2)}`;
-  const subject = `Price alert: ${params.brand} ${params.fragranceName} is now ${formattedPrice}`;
+  const subject = `New best deal: ${params.brand} ${params.fragranceName} just hit ${formattedPrice}`;
 
   const html = `
-    <h2>Price Alert</h2>
-    <p><strong>${params.brand} ${params.fragranceName}</strong> is now available at
+    <h2>New Best Deal</h2>
+    <p><strong>${params.brand} ${params.fragranceName}</strong> just dropped to its lowest price yet —
     <strong>${formattedPrice}</strong> on ${params.retailerName}.</p>
+    ${params.previousBest ? `<p>Previously as low as $${params.previousBest.toFixed(2)}.</p>` : ''}
     ${params.threshold ? `<p>This is below your alert threshold of $${params.threshold.toFixed(2)}.</p>` : ''}
     <p><a href="${params.productUrl}" style="
       background:#1a1a2e;color:#fff;padding:10px 20px;

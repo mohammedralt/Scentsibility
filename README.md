@@ -1,6 +1,6 @@
-# Fragrance Tracker
+# Scentsibility
 
-A price comparison site for niche and designer fragrances. It scrapes prices from 9 online retailers, keeps them in one catalog, tracks how each price moves over time, and emails you when something on your watchlist drops below the price you set.
+A price comparison site for niche and designer fragrances. It scrapes prices from 10 online retailers, keeps them in one catalog, tracks how each price moves over time, and emails you when something on your watchlist hits a new best deal.
 
 There are two parts: a scraper that collects the prices, and a Next.js web app that shows them. Both read and write the same Postgres database.
 
@@ -8,7 +8,7 @@ There are two parts: a scraper that collects the prices, and a Next.js web app t
 
 ### Collecting prices
 
-Most of the stores run on Shopify. Shopify has a search endpoint at `/search/suggest.json` that returns product data as JSON, so for those stores I just hit that URL directly over HTTP. No browser, about 300ms per search. That covers 8 of the 9 retailers.
+Most of the stores run on Shopify. Shopify has a search endpoint at `/search/suggest.json` that returns product data as JSON, so for those stores I just hit that URL directly over HTTP. No browser, about 300ms per search. That covers 9 of the 10 retailers.
 
 Jomashop was the hard one and took the most work. It is not a Shopify store, it runs on Magento with Algolia search, and the whole site sits behind Cloudflare. Plain HTTP requests get dropped because Cloudflare looks at the TLS handshake and can tell the request is not a real browser. The way I got past it was to drive an actual headless Chrome with Playwright and a stealth plugin: load the homepage first so Cloudflare hands over its clearance cookie, then load the search page and read the rendered product cards straight out of the page. I found the right approach by watching the network tab, seeing the search was Algolia backed, and realizing a real browser passes the check that a raw HTTP client fails.
 
@@ -32,7 +32,7 @@ One honest caveat: this only runs while the scheduler and worker processes are a
 
 ### Accounts and price alerts
 
-Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and you can set a target price. When the worker records a price at or below your target, and it has not already emailed you about it in the last day, it sends an email through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY` and a verified sender domain.
+Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and you can optionally set a target price ceiling. The worker compares the cheapest price across all of a fragrance's tracked retailers before and after every scrape, and fires an alert only when that scrape sets a new all time low (and clears your target, if you set one), capped at one email per fragrance per day. It sends through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY`; reaching any inbox other than your own Resend account address needs a verified sender domain.
 
 ## Tech stack
 
