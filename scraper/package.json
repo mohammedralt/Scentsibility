@@ -13,6 +13,8 @@
     "populate": "ts-node src/populate-prices.ts",
     "refresh": "ts-node src/refresh-prices.ts",
     "test-email": "ts-node src/send-test-email.ts",
+    "diagnose": "ts-node src/diagnose-retailer.ts",
+    "report-mismatches": "ts-node src/report-mismatches.ts",
     "import": "ts-node src/import-fragrances.ts"
   },
   "dependencies": {

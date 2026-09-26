@@ -57,3 +57,12 @@ export function randomDelay(minMs = 500, maxMs = 1500): Promise<void> {
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
+
+/**
+ * Lowercases, strips accents, turns punctuation into spaces and pads with
+ * spaces, so names can be matched as whole-word phrases:
+ * "Acqua di Giò" → " acqua di gio ", "creed-royal-oud" → " creed royal oud ".
+ */
+export function phraseText(text: string): string {
+  return ` ${text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+}

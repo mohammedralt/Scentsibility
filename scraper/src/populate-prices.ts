@@ -11,6 +11,7 @@ import 'dotenv/config';
 import { getPool, getRetailerId, upsertTrackedProduct, recordPriceSnapshot } from './db/client';
 import { getScraper, getRetailerKeys } from './retailers/registry';
 import { ProductListing } from './types';
+import { phraseText as normalize } from './utils';
 import logger from './logger';
 
 const DELAY_MS = 800; // between requests — be polite
@@ -26,11 +27,6 @@ const ACCESSORY_PATTERNS = [
   'shampoo', 'conditioner', 'deodorant', 'soap', 'candle', 'diffuser',
   'lip balm', 'shave', 'aftershave', 'roll-on', 'rollerball reed',
 ];
-
-// Lowercase, strip accents and punctuation: "Acqua di Giò" → "acqua di gio", "L'Homme" → "l homme"
-function normalize(text: string): string {
-  return ` ${text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
-}
 
 // Returns true if the product title plausibly matches the fragrance name
 export function isRelevantResult(product: ProductListing, fragranceName: string, brand: string): boolean {
