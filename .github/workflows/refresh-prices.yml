@@ -52,7 +52,7 @@ jobs:
             exit 1
           fi
 
-      - run: npm ci
+      - run: npm ci --include=dev # ts-node is a devDependency; NODE_ENV=production would skip it
 
       - name: Install Chromium (for Jomashop)
         run: npx playwright install --with-deps chromium
