@@ -50,6 +50,8 @@ Every fragrance gets the same kind of photo: the real bottle, cut out of a retai
 
 The photos are committed to `web/public/bottles`, with `web/lib/staged-bottles.json` mapping fragrance to file, so a photo always deploys together with the page that shows it. Fragrances without a usable photo keep their original image.
 
+If a photo slips through that shouldn't (a box, props, the wrong product), add the fragrance's id to `scraper/images/skip.txt`: it loses the staged photo on the next run and keeps its original image.
+
 The "Bottle photos" GitHub Action does new fragrances every Sunday. Run it by hand with "redo all" after changing the backdrop.
 
 ## Tech stack

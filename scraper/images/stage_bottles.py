@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from backdrop import HEIGHT, TABLE_TOP, WIDTH, make_backdrop  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
+SKIP_FILE = Path(__file__).parent / 'skip.txt'
 OUT_DIR = ROOT / 'web' / 'public' / 'bottles'
 MANIFEST = ROOT / 'web' / 'lib' / 'staged-bottles.json'
 
@@ -47,9 +48,16 @@ BOTTLE_HEIGHT = 0.56    # bottle height as a share of the image
 BOTTLE_MAX_WIDTH = 0.56
 
 
+def load_skip_list() -> set[str]:
+    if not SKIP_FILE.exists():
+        return set()
+    ids = (line.split('#', 1)[0].strip() for line in SKIP_FILE.read_text().splitlines())
+    return {i for i in ids if i}
+
+
 # ─── Finding candidate photos ─────────────────────────────────────────────────
 
-def load_fragrances(conn, only_missing: set[str] | None, limit: int | None):
+def load_fragrances(conn, exclude: set[str], limit: int | None):
     rows = conn.execute(
         """
         SELECT f.id::text, f.brand, f.name, f.image_url,
@@ -68,7 +76,7 @@ def load_fragrances(conn, only_missing: set[str] | None, limit: int | None):
     ).fetchall()
     out = []
     for fid, brand, name, image_url, listings in rows:
-        if only_missing is not None and fid in only_missing:
+        if fid in exclude:
             continue
         out.append({'id': fid, 'brand': brand, 'name': name, 'image_url': image_url, 'listings': listings})
         if limit and len(out) >= limit:
@@ -231,16 +239,22 @@ def main():
     deadline = time.time() + args.max_minutes * 60 if args.max_minutes else None
 
     manifest: dict[str, str] = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    skip = load_skip_list()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     backdrop = make_backdrop()
     session = new_session('u2net')
 
     with psycopg.connect(os.environ['DATABASE_URL'].strip(), prepare_threshold=None) as conn:
-        fragrances = load_fragrances(conn, None if args.all else set(manifest), args.limit)
+        exclude = skip | (set() if args.all else set(manifest))
+        fragrances = load_fragrances(conn, exclude, args.limit)
     print(f'{len(fragrances)} fragrances to process', flush=True)
 
     made = skipped = 0
     stale: list[str] = []
+
+    # Fragrances on the skip list lose any photo they had and aren't processed
+    for fid in skip & set(manifest):
+        stale.append(manifest.pop(fid))
 
     def save_manifest():
         MANIFEST.write_text(json.dumps(dict(sorted(manifest.items())), indent=0) + '\n')

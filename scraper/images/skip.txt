@@ -1,0 +1,6 @@
+# Fragrances that should never get a staged bottle photo (they keep their
+# original image). One fragrance id per line; anything after # is a comment.
+# Add one here when the automatic checks pick a bad photo.
+a8221fe0-7ed8-48e1-b0e8-9daee6a0ccbd  # My Burberry: flowers and fruit around the bottle
+945c815f-4670-4fb9-8293-1201a03d8e64  # Givenchy Organza: box beside the bottle
+f76c5f7a-eeaf-44b0-a3c8-cc94e32ce781  # Creed Royal Oud: photo is Royal Princess Oud (listing mismatch)
