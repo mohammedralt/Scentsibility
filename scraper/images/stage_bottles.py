@@ -149,10 +149,12 @@ def judge_cutout(cut: Image.Image) -> tuple[bool, str]:
     if bw / bh > 1.15:
         return False, 'too wide (box, or bottle next to its box)'
 
-    # Several separate objects side by side → bottle + box, or a set
-    cols = mask[top:bottom + 1, left:right + 1].any(axis=0)
-    gaps = np.diff(cols.astype(int))
-    if (gaps == -1).sum() > 1 and bw > bh * 0.6:
+    # Several separate objects side by side (bottle + box, a set, sample vials):
+    # count runs of occupied columns, ignoring slivers under 3% of the width
+    cols = mask[top:bottom + 1, left:right + 1].sum(axis=0) > bh * 0.02
+    edges = np.diff(np.concatenate([[0], cols.astype(int), [0]]))
+    runs = np.flatnonzero(edges == -1) - np.flatnonzero(edges == 1)
+    if (runs >= bw * 0.03).sum() > 1:
         return False, 'several objects'
 
     # Perfume bottles are left-right symmetric; a bottle standing beside its box
