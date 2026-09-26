@@ -143,15 +143,44 @@ export async function getPriceHistory(trackedProductId: string, limitDays = 90) 
 
 // ─── Watchlist / notifications ───────────────────────────────────────────────
 
-// The lowest currently-listed price for a fragrance across all its tracked
-// retailers — this is what "new best deal" is measured against.
+// Full bottles only: a $3 decant shouldn't count as a "new best deal". Same
+// rules as web/lib/listings.ts — keep the two in sync:
+//   - sample words in the variant label or URL, or under 30ml → sample
+//   - no size and under 40% of the median known full-bottle price → sample
+const SAMPLE_WORDS_RE = String.raw`\m(samples?|decants?|vials?|atomi[sz]er|travel|mini|miniature|splits?)\M`;
+
+// The lowest currently-listed full-bottle price for a fragrance across all its
+// tracked retailers — this is what "new best deal" is measured against.
 export async function getFragranceBestPrice(fragranceId: string): Promise<number | null> {
   const { rows } = await getPool().query<{ min: string | null }>(
-    `SELECT MIN(last_price)::text AS min FROM tracked_products
-     WHERE fragrance_id = $1 AND last_price IS NOT NULL`,
-    [fragranceId]
+    `WITH l AS (
+       SELECT last_price, size_ml,
+              (COALESCE(variant_label, '') || ' ' || regexp_replace(product_url, '[-_/?=&.]', ' ', 'g')) ~* $2 AS sample_words
+       FROM tracked_products
+       WHERE fragrance_id = $1 AND last_price IS NOT NULL
+     ),
+     ref AS (
+       SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY last_price) AS typical
+       FROM l WHERE size_ml >= 30 AND NOT sample_words
+     )
+     SELECT MIN(l.last_price)::text AS min
+     FROM l CROSS JOIN ref
+     WHERE NOT l.sample_words
+       AND (l.size_ml >= 30
+            OR (l.size_ml IS NULL AND (ref.typical IS NULL OR l.last_price >= 0.4 * ref.typical)))`,
+    [fragranceId, SAMPLE_WORDS_RE]
   );
   return rows[0]?.min != null ? parseFloat(rows[0].min) : null;
+}
+
+// Price history older than this is never shown (charts cover 90 days), so drop
+// it to keep the database well inside Supabase's free-tier size limit.
+export async function pruneOldSnapshots(keepDays: number): Promise<number> {
+  const { rowCount } = await getPool().query(
+    `DELETE FROM price_snapshots WHERE scraped_at < NOW() - make_interval(days => $1)`,
+    [keepDays]
+  );
+  return rowCount ?? 0;
 }
 
 export async function getWatchersToNotify(fragranceId: string, newBestPrice: number) {

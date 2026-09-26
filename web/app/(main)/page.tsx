@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Search, TrendingDown, Bell, RefreshCw } from 'lucide-react';
 import { getFeaturedFragrances, getFragrancePrices } from '@/lib/db';
 import { FragranceCard } from '@/components/FragranceCard';
+import { cheapestBottle } from '@/lib/listings';
 
 async function FeaturedGrid() {
   let withPrices: { fragrance: Awaited<ReturnType<typeof getFeaturedFragrances>>[0]; cheapest: Awaited<ReturnType<typeof getFragrancePrices>>[0] | null }[] = [];
@@ -12,7 +13,7 @@ async function FeaturedGrid() {
     withPrices = await Promise.all(
       fragrances.map(async (f) => {
         const prices = await getFragrancePrices(f.id);
-        return { fragrance: f, cheapest: prices[0] ?? null };
+        return { fragrance: f, cheapest: cheapestBottle(prices) };
       })
     );
   } catch {

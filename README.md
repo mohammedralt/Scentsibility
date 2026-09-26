@@ -27,7 +27,7 @@ Plus `retailers`, `users`, `watchlist_items`, and a log of sent notifications.
 
 ### Updating prices
 
-A GitHub Action (`.github/workflows/refresh-prices.yml`) runs `npm run refresh` every 12 hours on GitHub's servers, so prices stay current without a laptop being on. It re-scrapes every tracked listing (stalest first), writes a new snapshot for each, and emails watchers when a price sets a new best deal. Retailers run in parallel; requests to any one retailer stay spaced out.
+A GitHub Action (`.github/workflows/refresh-prices.yml`) runs `npm run refresh` every 12 hours on GitHub's servers, so prices stay current without a laptop being on. It re-scrapes every tracked listing (stalest first), writes a new snapshot for each, and emails watchers when a price sets a new best deal. It then deletes price history older than 90 days (the charts only show 90), which keeps the database well inside Supabase's free tier. Retailers run in parallel; requests to any one retailer stay spaced out.
 
 It needs repository secrets under Settings → Secrets and variables → Actions:
 
@@ -40,7 +40,7 @@ The BullMQ scheduler and worker (`npm run scheduler` / `npm run worker`) still w
 
 ### Accounts and price alerts
 
-Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Signing up logs you straight in and returns you to the page you came from. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and "Set Price Alert" lets you add an optional target price. The refresh job compares the cheapest price across all of a fragrance's tracked retailers before and after every scrape, and fires an alert only when that scrape sets a new all time low (and clears your target, if you set one), capped at one email per fragrance per day. It sends through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY`; reaching any inbox other than your own Resend account address needs a verified sender domain.
+Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Signing up logs you straight in and returns you to the page you came from. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and "Set Price Alert" lets you add an optional target price. The refresh job compares the cheapest full-bottle price across all of a fragrance's tracked retailers (samples, decants and anything under 30ml don't count) before and after every scrape, and fires an alert only when that scrape sets a new all time low (and clears your target, if you set one), capped at one email per fragrance per day. It sends through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY`; reaching any inbox other than your own Resend account address needs a verified sender domain.
 
 ## Tech stack
 

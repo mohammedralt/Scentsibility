@@ -5,6 +5,7 @@ import { searchFragrances, getFragrancePrices, countFragrances, getRetailers } f
 import { FragranceListItem } from '@/components/FragranceListItem';
 import { SearchFilters } from '@/components/SearchFilters';
 import type { TrackedProduct } from '@/lib/types';
+import { cheapestBottle, bottlesOnly } from '@/lib/listings';
 
 interface SearchPageProps {
   searchParams: {
@@ -105,7 +106,7 @@ async function Results({ filters }: { filters: Filters }) {
   let rows = withData
     .filter((r) => r.relevant.length > 0)
     .map((r) => {
-      const cheapest = r.relevant[0] ?? null; // getFragrancePrices is sorted price asc
+      const cheapest = cheapestBottle(r.relevant); // skips samples unless that's all there is
       const storeCount = new Set(r.relevant.map((p) => p.retailer_key)).size;
       return { ...r, cheapest, storeCount };
     });
@@ -125,7 +126,7 @@ async function Results({ filters }: { filters: Filters }) {
     );
   } else if (filters.sort === 'best_deal') {
     // Lowest cheapest-vs-average ratio = best relative deal
-    rows.sort((a, b) => priceOf(a.cheapest) / avgOf(a.allPrices) - priceOf(b.cheapest) / avgOf(b.allPrices));
+    rows.sort((a, b) => priceOf(a.cheapest) / avgOf(bottlesOnly(a.allPrices)) - priceOf(b.cheapest) / avgOf(bottlesOnly(b.allPrices)));
   } else {
     // popular: most listings first
     rows.sort((a, b) => b.allPrices.length - a.allPrices.length);
@@ -153,7 +154,7 @@ async function Results({ filters }: { filters: Filters }) {
             fragrance={fragrance}
             cheapest={cheapest}
             storeCount={storeCount}
-            allPrices={relevant}
+            allPrices={bottlesOnly(relevant)}
           />
         ))}
       </div>

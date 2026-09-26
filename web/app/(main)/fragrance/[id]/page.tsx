@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Image from 'next/image';
@@ -13,6 +14,7 @@ import { auth } from '@/lib/auth';
 import { PriceHistoryChart } from '@/components/PriceHistoryChart';
 import { WatchlistButton } from '@/components/WatchlistButton';
 import { formatPrice, timeAgo, formatSize } from '@/lib/utils';
+import { rankListings } from '@/lib/listings';
 
 interface PageProps {
   params: { id: string };
@@ -40,7 +42,18 @@ export default async function FragrancePage({ params }: PageProps) {
   const userId = session?.user?.id as string | undefined;
   const watchItem = userId ? await getWatchlistItem(userId, fragrance.id) : null;
 
-  const cheapest = prices[0] ?? null;
+  // Full bottles first, samples/decants last, so a $3 decant never headlines
+  const ranked = rankListings(prices);
+  const cheapest = ranked[0]?.listing ?? null;
+  const bottles = ranked.filter((r) => r.kind !== 'sample').map((r) => r.listing);
+  const bestValue = bottles.find((p) => p.last_in_stock) ?? bottles[0] ?? null;
+  // Cheapest per ml among bottles with a known size, when that's a different listing
+  const perMl = (p: (typeof prices)[number]) => Number(p.last_price) / p.size_ml!;
+  const bestPerMlCandidate = bottles
+    .filter((p) => p.size_ml && p.last_in_stock)
+    .sort((a, b) => perMl(a) - perMl(b))[0];
+  const bestPerMl = bestPerMlCandidate && bestPerMlCandidate.id !== bestValue?.id ? bestPerMlCandidate : null;
+  const firstSampleId = ranked.find((r) => r.kind === 'sample')?.listing.id;
   // Most recent scrape across all listings (prices[] is sorted by price, not time)
   const lastUpdated = prices.reduce<string | null>(
     (latest, p) => (p.last_scraped_at && (!latest || p.last_scraped_at > latest) ? p.last_scraped_at : latest),
@@ -127,16 +140,23 @@ export default async function FragrancePage({ params }: PageProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {prices.map((p, i) => {
+            {ranked.map(({ listing: p, kind }) => {
               const pricePml = p.last_price && p.size_ml
                 ? (p.last_price / p.size_ml).toFixed(2)
                 : null;
-              const isBestValue = i === 0;
-              const isRecommended = i === 1 && p.last_in_stock;
+              const isBestValue = p.id === bestValue?.id;
+              const isBestPerMl = p.id === bestPerMl?.id;
+              const sizeText = p.variant_label
+                ?? (p.size_ml ? formatSize(p.size_ml) : kind === 'sample' ? 'Sample / decant' : 'Size not listed');
 
               return (
+                <Fragment key={p.id}>
+                {p.id === firstSampleId && (
+                  <p className="mt-4 mb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Samples &amp; decants
+                  </p>
+                )}
                 <div
-                  key={p.id}
                   className={`flex items-center gap-4 rounded-xl border px-4 py-3.5 ${
                     isBestValue
                       ? 'border-brand-200 bg-brand-50/40'
@@ -152,17 +172,18 @@ export default async function FragrancePage({ params }: PageProps) {
                           BEST VALUE
                         </span>
                       )}
-                      {isRecommended && (
+                      {isBestPerMl && (
                         <span className="px-2 py-0.5 rounded text-xs font-bold bg-blue-500 text-white">
-                          RECOMMENDED
+                          BEST PER ML
+                        </span>
+                      )}
+                      {p.last_in_stock === false && (
+                        <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
+                          Out of stock
                         </span>
                       )}
                     </div>
-                    {(p.variant_label || p.size_ml) && (
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {p.variant_label ?? formatSize(p.size_ml)}
-                      </p>
-                    )}
+                    <p className="text-xs text-gray-400 mt-0.5">{sizeText}</p>
                   </div>
 
                   {/* Price */}
@@ -186,6 +207,7 @@ export default async function FragrancePage({ params }: PageProps) {
                     <ExternalLink className="h-3.5 w-3.5" />
                   </a>
                 </div>
+                </Fragment>
               );
             })}
           </div>

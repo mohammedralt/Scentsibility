@@ -13,9 +13,10 @@
  *   ts-node src/refresh-prices.ts --retailer beautyhouse   # single retailer
  *   ts-node src/refresh-prices.ts --skip jomashop          # skip a retailer (comma-separated)
  *   ts-node src/refresh-prices.ts --max-minutes 60         # stop starting new scrapes after an hour
+ *   ts-node src/refresh-prices.ts --keep-days 90           # delete price history older than this (default 90)
  */
 import 'dotenv/config';
-import { getPool } from './db/client';
+import { getPool, pruneOldSnapshots } from './db/client';
 import { getScraper, getRetailerKeys } from './retailers/registry';
 import { recordPriceAndAlert } from './notifications/alerts';
 import logger from './logger';
@@ -94,6 +95,7 @@ async function main() {
   const skip = new Set((flagValue('--skip') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
   const maxMinutes = parseFloat(flagValue('--max-minutes') ?? '') || Infinity;
   const deadline = Date.now() + maxMinutes * 60_000;
+  const keepDays = parseInt(flagValue('--keep-days') ?? '') || 90;
 
   const known = new Set(getRetailerKeys());
   const { rows } = await getPool().query<Listing>(
@@ -134,7 +136,14 @@ async function main() {
     updated += s.updated;
     alerts += s.alerts;
   }
-  console.log(`\n✓ Refreshed ${updated}/${total} listings, sent ${alerts} alerts\n`);
+  console.log(`\n✓ Refreshed ${updated}/${total} listings, sent ${alerts} alerts`);
+
+  try {
+    const pruned = await pruneOldSnapshots(keepDays);
+    console.log(`✓ Deleted ${pruned} price snapshots older than ${keepDays} days\n`);
+  } catch (err) {
+    logger.error({ err }, 'Pruning old snapshots failed');
+  }
 
   await getPool().end();
   // A run that updated nothing means something is broken (DB, network, every

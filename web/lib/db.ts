@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import type { Fragrance, TrackedProduct, PriceSnapshot, WatchlistItem } from './types';
+import { cheapestBottle } from './listings';
 
 let pool: Pool | null = null;
 
@@ -129,29 +130,32 @@ export async function getAllPriceHistoryForFragrance(
 // ─── Watchlist ────────────────────────────────────────────────────────────────
 
 export async function getUserWatchlist(userId: string): Promise<WatchlistItem[]> {
-  const { rows } = await getPool().query<WatchlistItem>(
+  const { rows } = await getPool().query(
     `SELECT
        wi.id, wi.fragrance_id,
        f.name AS fragrance_name, f.brand AS fragrance_brand,
        f.image_url AS fragrance_image,
-       wi.alert_threshold, wi.created_at,
-       MIN(tp.last_price) AS cheapest_price,
-       r.name AS cheapest_retailer,
-       r.currency AS cheapest_currency
+       wi.alert_threshold, wi.created_at
      FROM watchlist_items wi
      JOIN fragrances f ON f.id = wi.fragrance_id
-     LEFT JOIN tracked_products tp ON tp.fragrance_id = wi.fragrance_id
-       AND tp.last_price = (
-         SELECT MIN(last_price) FROM tracked_products
-         WHERE fragrance_id = wi.fragrance_id AND last_price IS NOT NULL
-       )
-     LEFT JOIN retailers r ON r.id = tp.retailer_id
      WHERE wi.user_id = $1
-     GROUP BY wi.id, f.id, r.id
      ORDER BY wi.created_at DESC`,
     [userId]
   );
-  return rows;
+
+  // Headline price is the cheapest full bottle, same as the fragrance page
+  return Promise.all(
+    rows.map(async (row) => {
+      const cheapest = cheapestBottle(await getFragrancePrices(row.fragrance_id));
+      return {
+        ...row,
+        alert_threshold: row.alert_threshold != null ? Number(row.alert_threshold) : null,
+        cheapest_price: cheapest?.last_price != null ? Number(cheapest.last_price) : null,
+        cheapest_retailer: cheapest?.retailer_name ?? null,
+        cheapest_currency: cheapest?.currency ?? null,
+      };
+    })
+  );
 }
 
 export async function addToWatchlist(

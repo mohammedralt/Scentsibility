@@ -7,7 +7,32 @@ import { ProductListing } from '../types';
 import { sendPriceAlert } from './email';
 import logger from '../logger';
 
-export async function recordPriceAndAlert(
+// Retailers are scraped concurrently, so two listings of the same fragrance can
+// be recorded at once. Without serializing, each would see the other's new low
+// between its before/after reads and email the same watchers again.
+const fragranceLocks = new Map<string, Promise<unknown>>();
+
+function withFragranceLock<T>(fragranceId: string, fn: () => Promise<T>): Promise<T> {
+  const previous = fragranceLocks.get(fragranceId) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(fn);
+  const tail = run.catch(() => undefined);
+  fragranceLocks.set(fragranceId, tail);
+  tail.then(() => {
+    if (fragranceLocks.get(fragranceId) === tail) fragranceLocks.delete(fragranceId);
+  });
+  return run;
+}
+
+export function recordPriceAndAlert(
+  trackedProductId: string,
+  fragranceId: string,
+  retailerKey: string,
+  product: ProductListing
+): Promise<{ alertsSent: number }> {
+  return withFragranceLock(fragranceId, () => recordAndAlert(trackedProductId, fragranceId, retailerKey, product));
+}
+
+async function recordAndAlert(
   trackedProductId: string,
   fragranceId: string,
   retailerKey: string,
