@@ -1,0 +1,2 @@
+# Tracked listing ids to delete with the "Remove listings" workflow.
+# One id per line; anything after # is a comment. Filled in after review.

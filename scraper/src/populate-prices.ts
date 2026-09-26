@@ -11,7 +11,7 @@ import 'dotenv/config';
 import { getPool, getRetailerId, upsertTrackedProduct, recordPriceSnapshot } from './db/client';
 import { getScraper, getRetailerKeys } from './retailers/registry';
 import { ProductListing } from './types';
-import { phraseText as normalize } from './utils';
+import { phraseText as normalize, FLANKER_WORDS } from './utils';
 import logger from './logger';
 
 const DELAY_MS = 800; // between requests — be polite
@@ -39,7 +39,13 @@ export function isRelevantResult(product: ProductListing, fragranceName: string,
   // its words in any order let "Royal Oud" pick up "Royal Princess Oud" listings.
   const normTitle = normalize(product.name);
   const brandWord = normalize(brand).trim().split(' ')[0];
-  return normTitle.includes(normalize(fragranceName)) && normTitle.includes(` ${brandWord} `);
+  const phrase = normalize(fragranceName);
+  const at = normTitle.indexOf(phrase);
+  if (at < 0 || !normTitle.includes(` ${brandWord} `)) return false;
+  // "Layton" must not pick up "Layton Exclusif": a flanker word right after the name
+  // makes it a different fragrance (unless the catalog name already includes it)
+  const next = normTitle.slice(at + phrase.length).trim().split(' ')[0];
+  return !(next && FLANKER_WORDS.has(next) && !phrase.includes(` ${next} `));
 }
 
 async function main() {

@@ -15,14 +15,7 @@
 import 'dotenv/config';
 import { writeFileSync } from 'fs';
 import { getPool } from './db/client';
-import { phraseText } from './utils';
-
-// Words that turn one fragrance into a different one when added after its name
-const FLANKER_WORDS = new Set([
-  'exclusif', 'exclusive', 'intense', 'elixir', 'absolu', 'absolute', 'extreme', 'legere', 'noir', 'prive',
-  'platinum', 'night', 'nuit', 'sport', 'fraiche', 'tendre', 'rouge', 'oud', 'royal', 'princess', 'cologne',
-  'infusion', 'essence', 'reserve', 'limited', 'edition', 'collector', 'summer', 'winter', 'eclat', 'aqua',
-]);
+import { phraseText, FLANKER_WORDS } from './utils';
 
 type Verdict = 'likely-wrong' | 'variant' | 'unclear';
 
@@ -32,18 +25,31 @@ export function urlName(url: string): string {
   return phraseText(last.replace(/\.html$/, ''));
 }
 
-export function judge(name: string, slug: string): Verdict | null {
-  const phrase = phraseText(name);
+// Filler stores put in URLs (gender, "for", "by"); ignored unless part of the name.
+// "cologne" isn't here or in FLANKER_WORDS: it's a concentration ("Cologne Absolue").
+const FILLER_WORDS = new Set(['unisex', 'mens', 'men', 'womens', 'women', 'ladies', 'lady', 'for', 'by', 'the', 'and']);
+
+export function judge(name: string, slug: string, brand = ''): Verdict | null {
+  // Catalog names sometimes repeat the brand ("Acqua Di Parma Blu Mediterraneo")
+  const brandText = phraseText(brand);
+  let phrase = phraseText(name);
+  // ...but keep it when stripping would leave only filler ("Burberry Women" → "women")
+  const stripped = phrase.slice(brandText.length - 1);
+  if (brand && phrase.startsWith(brandText) && stripped.trim().split(' ').some((w) => w && !FILLER_WORDS.has(w))) {
+    phrase = stripped;
+  }
   const words = phrase.trim().split(' ');
-  const idx = slug.indexOf(phrase);
+  const cleanSlug = ` ${slug.trim().split(' ').filter((w) => !FILLER_WORDS.has(w) || words.includes(w)).join(' ')} `;
+
+  const idx = cleanSlug.indexOf(phrase);
   if (idx >= 0) {
-    const next = slug.slice(idx + phrase.length).trim().split(' ')[0];
+    const next = cleanSlug.slice(idx + phrase.length).trim().split(' ')[0];
     return next && FLANKER_WORDS.has(next) && !words.includes(next) ? 'variant' : null;
   }
   // All words present, in order, but not side by side → a different fragrance
   let from = 0;
   const inOrder = words.every((w) => {
-    const at = slug.indexOf(` ${w} `, from);
+    const at = cleanSlug.indexOf(` ${w} `, from);
     if (at < 0) return false;
     from = at + w.length + 1;
     return true;
@@ -62,7 +68,7 @@ async function main() {
   );
 
   const flagged = rows
-    .map((r) => ({ ...r, verdict: judge(r.name, urlName(r.product_url)) }))
+    .map((r) => ({ ...r, verdict: judge(r.name, urlName(r.product_url), r.brand) }))
     .filter((r): r is typeof r & { verdict: Verdict } => r.verdict !== null);
 
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -75,9 +81,9 @@ async function main() {
   const count = (v: Verdict) => flagged.filter((r) => r.verdict === v).length;
   console.log(`${rows.length} listings checked → likely-wrong ${count('likely-wrong')}, variant ${count('variant')}, unclear ${count('unclear')}`);
   for (const v of ['likely-wrong', 'variant'] as const) {
-    console.log(`\n── ${v} (first 60)`);
-    for (const r of flagged.filter((x) => x.verdict === v).slice(0, 60)) {
-      console.log(`${r.brand} ${r.name}  ←  [${r.retailer}] ${r.product_url}`);
+    console.log(`\n── ${v}`);
+    for (const r of flagged.filter((x) => x.verdict === v)) {
+      console.log(`${r.id} | ${r.brand} ${r.name}  ←  [${r.retailer}] ${r.product_url.split('?')[0]}`);
     }
   }
   console.log(`\nFull list: ${out}`);

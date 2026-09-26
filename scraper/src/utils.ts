@@ -66,3 +66,11 @@ export function clamp(value: number, min: number, max: number): number {
 export function phraseText(text: string): string {
   return ` ${text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
 }
+
+// Words that turn one fragrance into a different one when added after its name
+export const FLANKER_WORDS = new Set([
+  'exclusif', 'exclusive', 'intense', 'elixir', 'absolu', 'absolute', 'extreme', 'legere', 'noir', 'prive',
+  'platinum', 'night', 'nuit', 'sport', 'fraiche', 'tendre', 'rouge', 'oud', 'royal', 'princess',
+  'infusion', 'essence', 'reserve', 'limited', 'edition', 'collector', 'summer', 'winter', 'eclat', 'aqua',
+]);
+

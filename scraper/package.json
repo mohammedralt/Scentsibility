@@ -15,6 +15,7 @@
     "test-email": "ts-node src/send-test-email.ts",
     "diagnose": "ts-node src/diagnose-retailer.ts",
     "report-mismatches": "ts-node src/report-mismatches.ts",
+    "remove-listings": "ts-node src/remove-listings.ts",
     "import": "ts-node src/import-fragrances.ts"
   },
   "dependencies": {

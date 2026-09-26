@@ -1,0 +1,41 @@
+name: Remove listings
+
+# Deletes the tracked listings named in scraper/cleanup/remove-listings.txt
+# (e.g. listings filed under the wrong fragrance). Shows what it would delete
+# unless "confirm" is ticked.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Actually delete (leave unticked for a dry run)'
+        type: boolean
+        default: false
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scraper
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: scraper/package-lock.json
+      - run: npm ci --include=dev
+      - name: Remove listings
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" = "true" ]; then
+            npm run remove-listings -- cleanup/remove-listings.txt --confirm
+          else
+            npm run remove-listings -- cleanup/remove-listings.txt
+          fi
