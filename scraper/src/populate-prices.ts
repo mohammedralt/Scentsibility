@@ -27,16 +27,23 @@ const ACCESSORY_PATTERNS = [
   'lip balm', 'shave', 'aftershave', 'roll-on', 'rollerball reed',
 ];
 
+// Lowercase, strip accents and punctuation: "Acqua di Giò" → "acqua di gio", "L'Homme" → "l homme"
+function normalize(text: string): string {
+  return ` ${text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()} `;
+}
+
 // Returns true if the product title plausibly matches the fragrance name
-function isRelevantResult(product: ProductListing, fragranceName: string, brand: string): boolean {
+export function isRelevantResult(product: ProductListing, fragranceName: string, brand: string): boolean {
   const title = product.name.toLowerCase();
 
   // Reject non-fragrance accessories (body wash, candles, hair mist, etc.)
   if (ACCESSORY_PATTERNS.some((p) => title.includes(p))) return false;
 
-  const nameParts = fragranceName.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-  // All significant words in the fragrance name must appear in the product title
-  return nameParts.every((w) => title.includes(w)) && title.includes(brand.toLowerCase().split(' ')[0]);
+  // The fragrance name must appear as a phrase, as whole words in order. Matching
+  // its words in any order let "Royal Oud" pick up "Royal Princess Oud" listings.
+  const normTitle = normalize(product.name);
+  const brandWord = normalize(brand).trim().split(' ')[0];
+  return normTitle.includes(normalize(fragranceName)) && normTitle.includes(` ${brandWord} `);
 }
 
 async function main() {
