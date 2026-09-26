@@ -11,6 +11,7 @@
     "scheduler": "ts-node src/queue/scheduler.ts",
     "install:browsers": "playwright install chromium",
     "populate": "ts-node src/populate-prices.ts",
+    "refresh": "ts-node src/refresh-prices.ts",
     "import": "ts-node src/import-fragrances.ts"
   },
   "dependencies": {

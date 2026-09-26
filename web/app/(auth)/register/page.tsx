@@ -2,11 +2,15 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
+import { safeCallbackUrl } from '@/lib/utils';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +34,14 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push('/login?registered=1');
+      // Log the new account straight in rather than making them sign in again
+      const result = await signIn('credentials', { email, password, redirect: false });
+      if (result?.error) {
+        router.push(`/login?registered=1&callbackUrl=${encodeURIComponent(callbackUrl)}`);
+        return;
+      }
+      router.push(callbackUrl);
+      router.refresh();
     });
   }
 
@@ -101,7 +112,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-gray-500 mt-4">
           Already have an account?{' '}
-          <Link href="/login" className="text-brand-600 dark:text-brand-400 hover:underline font-medium">
+          <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-brand-600 dark:text-brand-400 hover:underline font-medium">
             Sign in
           </Link>
         </p>

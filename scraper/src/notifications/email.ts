@@ -11,6 +11,7 @@ interface PriceAlertParams {
   price: number;
   currency: string;
   productUrl: string;
+  fragrancePageUrl?: string | null;
   threshold: number | null;
   previousBest: number | null;
 }
@@ -33,10 +34,11 @@ export async function sendPriceAlert(params: PriceAlertParams): Promise<void> {
       background:#1a1a2e;color:#fff;padding:10px 20px;
       border-radius:4px;text-decoration:none;display:inline-block;margin-top:8px
     ">View Deal</a></p>
+    ${params.fragrancePageUrl ? `<p><a href="${params.fragrancePageUrl}">Compare prices across all retailers</a></p>` : ''}
     <hr/>
     <p style="font-size:12px;color:#888">
       You're receiving this because you have a price alert set up.
-      <a href="${process.env.APP_URL ?? '#'}/settings/notifications">Manage alerts</a>
+      <a href="${process.env.APP_URL ?? '#'}/dashboard">Manage alerts</a>
     </p>
   `;
 

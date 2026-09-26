@@ -27,13 +27,20 @@ Plus `retailers`, `users`, `watchlist_items`, and a log of sent notifications.
 
 ### Updating prices
 
-The scraper has a scheduler and a worker that talk through a Redis queue (BullMQ on Upstash). Every 12 hours the scheduler drops one job per tracked product onto the queue, and the worker pulls jobs off, re-scrapes each one, and writes a new snapshot. The worker also checks whether anyone is watching that fragrance and sends alerts when a price crosses their target.
+A GitHub Action (`.github/workflows/refresh-prices.yml`) runs `npm run refresh` every 12 hours on GitHub's servers, so prices stay current without a laptop being on. It re-scrapes every tracked listing (stalest first), writes a new snapshot for each, and emails watchers when a price sets a new best deal. Retailers run in parallel; requests to any one retailer stay spaced out.
 
-One honest caveat: this only runs while the scheduler and worker processes are alive. On a laptop that means only when the machine is on. For real round the clock updates you would deploy those two processes to a host that stays up, like Railway or Render.
+It needs repository secrets under Settings → Secrets and variables → Actions:
+
+- `DATABASE_URL` (required): the same connection string the web app uses. On Supabase use the pooler string (Settings → Database → Connection string), since GitHub runners can't reach the IPv6-only direct host.
+- `RESEND_API_KEY` and `EMAIL_FROM` (optional): needed for alert emails. Prices still refresh without them.
+
+To refresh right away, open the Actions tab → Refresh prices → Run workflow. Tick "discover" to also search every retailer for fragrances that have no prices yet.
+
+The BullMQ scheduler and worker (`npm run scheduler` / `npm run worker`) still work if you'd rather run the pipeline on an always-on host with Redis.
 
 ### Accounts and price alerts
 
-Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and you can optionally set a target price ceiling. The worker compares the cheapest price across all of a fragrance's tracked retailers before and after every scrape, and fires an alert only when that scrape sets a new all time low (and clears your target, if you set one), capped at one email per fragrance per day. It sends through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY`; reaching any inbox other than your own Resend account address needs a verified sender domain.
+Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Signing up logs you straight in and returns you to the page you came from. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and "Set Price Alert" lets you add an optional target price. The refresh job compares the cheapest price across all of a fragrance's tracked retailers before and after every scrape, and fires an alert only when that scrape sets a new all time low (and clears your target, if you set one), capped at one email per fragrance per day. It sends through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY`; reaching any inbox other than your own Resend account address needs a verified sender domain.
 
 ## Tech stack
 
@@ -62,6 +69,7 @@ Pull prices:
 
 ```
 npm run populate              # scrape all retailers for every fragrance
+npm run refresh               # re-scrape every tracked listing once (what the GitHub Action runs)
 npm run scrape -- jomashop "creed aventus"   # test one retailer
 ```
 

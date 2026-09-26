@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
+import { safeCallbackUrl } from '@/lib/utils';
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/dashboard';
+  const callbackUrl = safeCallbackUrl(searchParams.get('callbackUrl'));
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,6 +46,11 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6 flex flex-col gap-4">
+          {searchParams.get('registered') && !error && (
+            <div className="px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 text-sm border border-green-200 dark:border-green-800">
+              Account created. Sign in to continue.
+            </div>
+          )}
           {error && (
             <div className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-200 dark:border-red-800">
               {error}
@@ -86,7 +92,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-gray-500 mt-4">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-brand-600 dark:text-brand-400 hover:underline font-medium">
+          <Link href={`/register?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-brand-600 dark:text-brand-400 hover:underline font-medium">
             Create one
           </Link>
         </p>

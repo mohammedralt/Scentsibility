@@ -2,12 +2,12 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ExternalLink, Clock, Heart, Bell, Share2 } from 'lucide-react';
+import { ExternalLink, Clock } from 'lucide-react';
 import {
   getFragranceById,
   getFragrancePrices,
   getAllPriceHistoryForFragrance,
-  isWatching,
+  getWatchlistItem,
 } from '@/lib/db';
 import { auth } from '@/lib/auth';
 import { PriceHistoryChart } from '@/components/PriceHistoryChart';
@@ -38,10 +38,14 @@ export default async function FragrancePage({ params }: PageProps) {
 
   const history = await getAllPriceHistoryForFragrance(fragrance.id, 90);
   const userId = session?.user?.id as string | undefined;
-  const watching = userId ? await isWatching(userId, fragrance.id) : false;
+  const watchItem = userId ? await getWatchlistItem(userId, fragrance.id) : null;
 
   const cheapest = prices[0] ?? null;
-  const lastUpdated = prices[0]?.last_scraped_at;
+  // Most recent scrape across all listings (prices[] is sorted by price, not time)
+  const lastUpdated = prices.reduce<string | null>(
+    (latest, p) => (p.last_scraped_at && (!latest || p.last_scraped_at > latest) ? p.last_scraped_at : latest),
+    null
+  );
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
@@ -91,14 +95,13 @@ export default async function FragrancePage({ params }: PageProps) {
 
           {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
-            <WatchlistButton fragranceId={fragrance.id} isWatching={watching} isLoggedIn={!!session} />
-            <button className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors">
-              <Bell className="h-4 w-4" />
-              Set Price Alert
-            </button>
-            <button className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm hover:bg-gray-50 transition-colors">
-              <Share2 className="h-4 w-4" />
-            </button>
+            <WatchlistButton
+              fragranceId={fragrance.id}
+              isWatching={!!watchItem}
+              watchlistItemId={watchItem?.id}
+              alertThreshold={watchItem?.alert_threshold ?? null}
+              isLoggedIn={!!session}
+            />
           </div>
         </div>
       </div>

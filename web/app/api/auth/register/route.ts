@@ -4,8 +4,8 @@ import { z } from 'zod';
 import { getUserByEmail, createUser } from '@/lib/db';
 
 const registerSchema = z.object({
-  name: z.string().min(1).max(80),
-  email: z.string().email(),
+  name: z.string().trim().min(1).max(80),
+  email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8).max(128),
 });
 
