@@ -155,6 +155,18 @@ def judge_cutout(cut: Image.Image) -> tuple[bool, str]:
     if (gaps == -1).sum() > 1 and bw > bh * 0.6:
         return False, 'several objects'
 
+    # Perfume bottles are left-right symmetric; a bottle standing beside its box
+    # (often touching, so it reads as one object) is lopsided. Compare the
+    # silhouette's top and bottom edges with their mirror image. Calibrated on
+    # real retailer photos: lone bottles scored 0.02-0.12, bottle+box 0.20-0.57.
+    crop = mask[top:bottom + 1, left:right + 1]
+    has = crop.any(axis=0)
+    top_edge = np.where(has, crop.argmax(axis=0), bh) / bh
+    bottom_edge = np.where(has, bh - 1 - crop[::-1].argmax(axis=0), 0) / bh
+    asymmetry = np.mean(np.abs(top_edge - top_edge[::-1])) + np.mean(np.abs(bottom_edge - bottom_edge[::-1]))
+    if asymmetry > 0.16:
+        return False, f'lopsided (asymmetry {asymmetry:.2f}) — probably a bottle next to its box'
+
     fill = area / (bh * bw)
     if fill > 0.93:
         return False, f'rectangular block (fill {fill:.2f}) — probably the box'
@@ -267,6 +279,9 @@ def main():
             break
         else:
             skipped += 1
+            # A photo from an earlier run that no longer passes the checks goes too
+            if fragrance['id'] in manifest:
+                stale.append(manifest.pop(fragrance['id']))
             print(f"{label}: skipped ({', '.join(reasons) or 'no photos found'})", flush=True)
 
         if i % 25 == 0:  # save progress so a crash or timeout keeps what's done
