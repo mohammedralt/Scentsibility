@@ -1,8 +1,11 @@
 /**
  * Generic Shopify scraper — works for any Shopify store via their predictive search API.
- * Uses direct HTTP (no browser needed) since these stores don't require Cloudflare cookies.
+ * Uses direct HTTP (no browser needed), except for stores behind a Cloudflare
+ * challenge (use_browser), where the same JSON endpoints are fetched from inside
+ * a stealth browser page that has passed the challenge.
  */
 import axios from 'axios';
+import { Page } from 'playwright';
 import { BaseScraper } from './base';
 import { ProductListing, RetailerConfig, ScrapeResult } from '../types';
 import { parseSize } from '../utils';
@@ -54,8 +57,50 @@ function buildVariantLabel(variantTitle: string | undefined, productTitle: strin
 }
 
 export class ShopifyScraper extends BaseScraper {
+  private storePage: Page | null = null;
+
   constructor(config: RetailerConfig) {
     super(config);
+  }
+
+  override async close(): Promise<void> {
+    this.storePage = null;
+    await super.close();
+  }
+
+  /** A page on the store that has passed the Cloudflare check (browser mode only). */
+  private async clearedPage(): Promise<Page> {
+    if (this.storePage) return this.storePage;
+    const page = await this.newPage();
+    await page.goto(this.config.base_url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await page.waitForFunction(() => !/just a moment/i.test(document.title), undefined, { timeout: 45_000 });
+    this.storePage = page;
+    return page;
+  }
+
+  private async getJson<T>(url: string): Promise<T> {
+    if (!this.usesBrowser) {
+      const { data } = await axios.get<T>(url, { headers: HEADERS, timeout: 15_000 });
+      return data;
+    }
+    const page = await this.clearedPage();
+    const res = await page.evaluate(async (u) => {
+      const r = await fetch(u, { headers: { Accept: 'application/json' }, credentials: 'include' });
+      return { status: r.status, text: await r.text() };
+    }, url);
+    if (res.status !== 200) throw new Error(`HTTP ${res.status} for ${url}`);
+    return JSON.parse(res.text) as T;
+  }
+
+  /** Runs fn with a browser open when this store needs one and the caller hasn't opened it. */
+  private async withBrowser<T>(fn: () => Promise<T>): Promise<T> {
+    const ownBrowser = this.usesBrowser && !this.context;
+    if (ownBrowser) await this.launch();
+    try {
+      return await fn();
+    } finally {
+      if (ownBrowser) await this.close();
+    }
   }
 
   async searchProducts(query: string): Promise<ProductListing[]> {
@@ -63,10 +108,7 @@ export class ShopifyScraper extends BaseScraper {
     const products: ProductListing[] = [];
 
     try {
-      const { data } = await axios.get<{ resources: { results: { products: ShopifyProduct[] } } }>(url, {
-        headers: HEADERS,
-        timeout: 15_000,
-      });
+      const data = await this.getJson<{ resources: { results: { products: ShopifyProduct[] } } }>(url);
 
       const items = data?.resources?.results?.products ?? [];
 
@@ -103,7 +145,7 @@ export class ShopifyScraper extends BaseScraper {
     return products;
   }
 
-  // Shopify uses axios — no browser needed, skip launch/close overhead
+  // No browser launch/close per call unless the store needs one (withBrowser)
   override async scrapeSearch(query: string): Promise<ScrapeResult> {
     const start = Date.now();
     let products: ProductListing[] = [];
@@ -111,7 +153,7 @@ export class ShopifyScraper extends BaseScraper {
     let success = false;
 
     try {
-      products = await this.searchProducts(query);
+      products = await this.withBrowser(() => this.searchProducts(query));
       success = true;
       logger.info({ retailer: this.config.key, query, count: products.length }, 'Scrape complete');
     } catch (err) {
@@ -132,7 +174,7 @@ export class ShopifyScraper extends BaseScraper {
 
   override async scrapeUrl(url: string): Promise<ScrapeResult> {
     const start = Date.now();
-    const product = await this.scrapeProductPage(url);
+    const product = await this.withBrowser(() => this.scrapeProductPage(url)).catch(() => null);
     return {
       retailer_key: this.config.key,
       query: url,
@@ -149,10 +191,7 @@ export class ShopifyScraper extends BaseScraper {
     if (!handle) return null;
 
     try {
-      const { data } = await axios.get(`${this.config.base_url}/products/${handle}.js`, {
-        headers: HEADERS,
-        timeout: 15_000,
-      });
+      const data = await this.getJson<any>(`${this.config.base_url}/products/${handle}.js`);
 
       const variants: ShopifyVariant[] = data.variants ?? [];
       // Tracked URLs pin a specific variant (size) — price that one, not whichever

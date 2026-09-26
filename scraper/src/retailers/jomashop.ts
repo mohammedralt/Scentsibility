@@ -9,6 +9,7 @@ const CONFIG: RetailerConfig = {
   base_url: 'https://www.jomashop.com',
   currency: 'USD',
   search_url_template: 'https://www.jomashop.com/search?q={query}',
+  use_browser: true,
 };
 
 /**

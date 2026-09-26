@@ -28,6 +28,8 @@ export interface RetailerConfig {
   base_url: string;
   currency: Currency;
   search_url_template: string;
+  /** Behind a Cloudflare "Just a moment..." check: fetch through a real (stealth) browser */
+  use_browser?: boolean;
 }
 
 // What gets stored in the DB for a tracked product

@@ -23,6 +23,11 @@ export abstract class BaseScraper {
     this.config = config;
   }
 
+  /** Whether this retailer is scraped through a browser (callers keep one open for a batch) */
+  get usesBrowser(): boolean {
+    return !!this.config.use_browser;
+  }
+
   private randomUA(): string {
     return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
   }

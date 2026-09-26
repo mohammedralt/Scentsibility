@@ -35,6 +35,9 @@ jobs:
 
       - run: npm ci --include=dev
 
+      - name: Install Chromium (for browser-mode retailers)
+        run: npx playwright install --with-deps chromium
+
       - name: Probe retailer
         continue-on-error: true
         env:

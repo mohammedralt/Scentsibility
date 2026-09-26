@@ -44,9 +44,9 @@ async function refreshRetailer(retailerKey: string, listings: Listing[], deadlin
   const stats: RetailerStats = { updated: 0, failed: 0, alerts: 0 };
   const scraper = getScraper(retailerKey);
 
-  // Browser-based scrapers (Jomashop) get one browser for the whole run instead
-  // of launching Chrome per listing. Shopify scrapers never touch the browser.
-  const needsBrowser = retailerKey === 'jomashop';
+  // Browser-based scrapers (Jomashop, and Shopify stores behind Cloudflare) get
+  // one browser for the whole run instead of launching Chrome per listing.
+  const needsBrowser = scraper.usesBrowser;
   if (needsBrowser) await scraper.launch();
 
   try {
