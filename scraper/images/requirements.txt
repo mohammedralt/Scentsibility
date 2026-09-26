@@ -1,0 +1,5 @@
+rembg[cpu]==2.0.85
+numpy
+pillow
+psycopg[binary]
+requests

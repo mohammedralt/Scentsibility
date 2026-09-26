@@ -3,17 +3,17 @@ import Link from 'next/link';
 import { Search, TrendingDown, Bell, RefreshCw } from 'lucide-react';
 import { getFeaturedFragrances, getFragrancePrices } from '@/lib/db';
 import { FragranceCard } from '@/components/FragranceCard';
-import { cheapestBottle } from '@/lib/listings';
+import { summarizeListings, type ListingSummary } from '@/lib/listings';
 
 async function FeaturedGrid() {
-  let withPrices: { fragrance: Awaited<ReturnType<typeof getFeaturedFragrances>>[0]; cheapest: Awaited<ReturnType<typeof getFragrancePrices>>[0] | null }[] = [];
+  let withPrices: { fragrance: Awaited<ReturnType<typeof getFeaturedFragrances>>[0]; summary: ListingSummary }[] = [];
 
   try {
-    const fragrances = await getFeaturedFragrances(12);
+    const fragrances = await getFeaturedFragrances(15);
     withPrices = await Promise.all(
       fragrances.map(async (f) => {
         const prices = await getFragrancePrices(f.id);
-        return { fragrance: f, cheapest: cheapestBottle(prices) };
+        return { fragrance: f, summary: summarizeListings(prices) };
       })
     );
   } catch {
@@ -35,9 +35,9 @@ async function FeaturedGrid() {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-      {withPrices.map(({ fragrance, cheapest }) => (
-        <FragranceCard key={fragrance.id} fragrance={fragrance} cheapest={cheapest} />
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      {withPrices.map(({ fragrance, summary }) => (
+        <FragranceCard key={fragrance.id} fragrance={fragrance} summary={summary} />
       ))}
     </div>
   );
@@ -47,15 +47,15 @@ export default function HomePage() {
   return (
     <div className="flex flex-col">
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-brand-950 via-brand-900 to-gray-950 text-white py-24 px-4 overflow-hidden">
-        {/* Background glow */}
+      <section className="relative bg-gray-950 text-white py-24 px-4 overflow-hidden border-b border-gray-900">
+        {/* Soft warm spotlight, echoing the bottle photos */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-brand-500/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 w-[900px] h-[520px] bg-[radial-gradient(ellipse_at_center,rgba(120,105,88,0.22),transparent_65%)]" />
+          <div className="absolute -bottom-48 left-1/2 -translate-x-1/2 w-[700px] h-72 bg-brand-500/10 rounded-full blur-3xl" />
         </div>
 
         <div className="relative max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-800/50 text-brand-300 text-xs font-medium mb-6 border border-brand-700/50">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-900 text-gray-300 text-xs font-medium mb-6 border border-gray-800">
             <RefreshCw className="h-3 w-3" />
             Prices updated every 12 hours
           </div>
@@ -78,9 +78,7 @@ export default function HomePage() {
                 type="search"
                 name="q"
                 placeholder="Search for Sauvage, Bleu de Chanel, Aventus…"
-                className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-white/10 border border-white/20
-                           text-white placeholder:text-gray-400 focus:outline-none
-                           focus:ring-2 focus:ring-brand-400 focus:border-transparent text-sm"
+                className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent text-sm"
               />
             </div>
             <button type="submit" className="btn-primary px-6 py-3.5 rounded-xl text-base">
@@ -91,7 +89,7 @@ export default function HomePage() {
       </section>
 
       {/* Feature strip */}
-      <section className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900">
+      <section className="border-b border-gray-900 bg-gray-950">
         <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
           {[
             {
@@ -123,16 +121,16 @@ export default function HomePage() {
       <section className="max-w-6xl mx-auto px-4 py-12">
         <div className="flex items-baseline justify-between mb-6">
           <h2 className="text-xl font-bold">Popular fragrances</h2>
-          <Link href="/search?q=" className="text-sm text-brand-600 dark:text-brand-400 hover:underline">
+          <Link href="/search?q=" className="text-sm text-brand-400 hover:underline">
             Browse all →
           </Link>
         </div>
 
         <Suspense
           fallback={
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="card aspect-square animate-pulse bg-gray-100 dark:bg-gray-800" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {Array.from({ length: 15 }).map((_, i) => (
+                <div key={i} className="card aspect-square animate-pulse bg-gray-800" />
               ))}
             </div>
           }

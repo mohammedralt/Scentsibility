@@ -27,10 +27,10 @@ export function Header({ session }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-gray-800 bg-gray-950/80 backdrop-blur-sm">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4">
         {/* Logo */}
-        <Link href="/" className="flex-shrink-0 font-bold text-lg text-brand-700 dark:text-brand-400 tracking-tight">
+        <Link href="/" className="flex-shrink-0 font-bold text-lg text-brand-400 tracking-tight">
           Scentsibility
         </Link>
 
@@ -88,7 +88,7 @@ export function Header({ session }: HeaderProps) {
 
       {/* Mobile dropdown */}
       {menuOpen && (
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 py-3 flex flex-col gap-2">
+        <div className="md:hidden border-gray-800 bg-gray-950 px-4 py-3 flex flex-col gap-2">
           {session ? (
             <>
               <Link href="/dashboard" className="btn-ghost justify-start" onClick={() => setMenuOpen(false)}>

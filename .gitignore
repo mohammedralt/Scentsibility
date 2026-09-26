@@ -7,3 +7,5 @@ dist/
 debug-*.html
 *.log
 populate.log
+
+__pycache__/

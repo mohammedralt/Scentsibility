@@ -6,10 +6,23 @@ const config: Config = {
     './components/**/*.{ts,tsx}',
     './lib/**/*.{ts,tsx}',
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        // Warm near-black neutrals for the dark theme (in place of Tailwind's cool grays)
+        gray: {
+          50:  '#faf9f7',
+          100: '#f2f0ed',
+          200: '#e3dfda',
+          300: '#cbc5be',
+          400: '#a39c94',
+          500: '#7d766f',
+          600: '#5a544e',
+          700: '#3d3834',
+          800: '#2b2724',
+          900: '#1c1a18',
+          950: '#0e0d0c',
+        },
         brand: {
           50:  '#f0fdfa',
           100: '#ccfbf1',

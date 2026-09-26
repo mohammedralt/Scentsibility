@@ -32,7 +32,9 @@ A GitHub Action (`.github/workflows/refresh-prices.yml`) runs `npm run refresh` 
 It needs repository secrets under Settings → Secrets and variables → Actions:
 
 - `DATABASE_URL` (required): the same connection string the web app uses. On Supabase use the pooler string (Settings → Database → Connection string), since GitHub runners can't reach the IPv6-only direct host.
-- `RESEND_API_KEY` and `EMAIL_FROM` (optional): needed for alert emails. Prices still refresh without them.
+- `GMAIL_USER` and `GMAIL_APP_PASSWORD` (optional): the Gmail account alert emails are sent from, and a Google app password for it (Google Account → Security → 2-Step Verification → App passwords). Free, no domain needed, about 500 emails a day. Prices still refresh without them.
+
+To check email works: Actions → Refresh prices → Run workflow, and put your address in "Send a sample alert to this address first".
 
 To refresh right away, open the Actions tab → Refresh prices → Run workflow. Tick "discover" to also search every retailer for fragrances that have no prices yet.
 
@@ -42,12 +44,21 @@ The BullMQ scheduler and worker (`npm run scheduler` / `npm run worker`) still w
 
 Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Signing up logs you straight in and returns you to the page you came from. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and "Set Price Alert" lets you add an optional target price. The refresh job compares the cheapest full-bottle price across all of a fragrance's tracked retailers (samples, decants and anything under 30ml don't count) before and after every scrape, and fires an alert only when that scrape sets a new all time low (and clears your target, if you set one), capped at one email per fragrance per day. It sends through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY`; reaching any inbox other than your own Resend account address needs a verified sender domain.
 
+### Bottle photos
+
+Every fragrance gets the same kind of photo: the real bottle, cut out of a retailer's product shot, standing on a dark marble table. `scraper/images/stage_bottles.py` gathers each fragrance's Shopify product photos, removes the background with [rembg](https://github.com/danielgatis/rembg), skips shots that are really the box (a solid rectangle with no neck or cap, or a bottle standing next to its box), and places the first good cut-out on the backdrop drawn by `scraper/images/backdrop.py`.
+
+The photos are committed to `web/public/bottles`, with `web/lib/staged-bottles.json` mapping fragrance to file, so a photo always deploys together with the page that shows it. Fragrances without a usable photo keep their original image.
+
+The "Bottle photos" GitHub Action does new fragrances every Sunday. Run it by hand with "redo all" after changing the backdrop.
+
 ## Tech stack
 
 - Scraper: TypeScript, Playwright, Axios, BullMQ, Postgres (pg)
 - Web: Next.js 14 (App Router), React server components, Tailwind, Recharts, NextAuth
 - Data: Postgres on Supabase, Redis on Upstash
-- Email: Resend
+- Email: Gmail (nodemailer), or Resend
+- Images: rembg, Pillow, NumPy
   
 
 ## Running it locally

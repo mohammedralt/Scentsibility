@@ -1,65 +1,78 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { TrendingDown } from 'lucide-react';
-import type { Fragrance, TrackedProduct } from '@/lib/types';
-import { formatPrice } from '@/lib/utils';
-import { cn } from '@/lib/utils';
+import type { Fragrance } from '@/lib/types';
+import type { ListingSummary } from '@/lib/listings';
+import { formatPrice, cn, isStagedImage } from '@/lib/utils';
 
 interface FragranceCardProps {
   fragrance: Fragrance;
-  cheapest?: TrackedProduct | null;
+  summary: ListingSummary;
   className?: string;
 }
 
-export function FragranceCard({ fragrance, cheapest, className }: FragranceCardProps) {
+export function FragranceCard({ fragrance, summary, className }: FragranceCardProps) {
+  const { cheapest, soldOut, goodDeal } = summary;
+  const staged = isStagedImage(fragrance.image_url);
+
   return (
     <Link
       href={`/fragrance/${fragrance.id}`}
       className={cn(
-        'card group flex flex-col overflow-hidden',
-        'hover:border-brand-300 dark:hover:border-brand-700',
-        'hover:shadow-md transition-all duration-200',
+        'group flex flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900',
+        'hover:border-gray-600 transition-colors duration-200',
         className
       )}
     >
       {/* Image */}
-      <div className="relative bg-gray-50 dark:bg-gray-800/50 aspect-square overflow-hidden">
+      <div className={cn('relative aspect-[4/3.7] overflow-hidden', staged ? 'bg-black' : 'bg-gray-800/60')}>
         {fragrance.image_url ? (
           <Image
             src={fragrance.image_url}
             alt={`${fragrance.brand} ${fragrance.name}`}
             fill
-            className="object-contain p-4 group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
+            className={cn(
+              'transition-transform duration-500 group-hover:scale-105',
+              staged ? 'object-cover' : 'object-contain p-6'
+            )}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-4xl select-none">🌸</span>
           </div>
         )}
+        {soldOut && (
+          <span className="absolute top-3 left-3 rounded-full bg-black/75 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
+            Sold out
+          </span>
+        )}
       </div>
 
       {/* Info */}
-      <div className="p-3 flex flex-col gap-1 flex-1">
-        <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide truncate">
+      <div className="flex flex-1 flex-col px-4 pb-4 pt-3">
+        <p className="truncate text-[11px] font-medium uppercase tracking-wider text-gray-400">
           {fragrance.brand}
         </p>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 leading-snug line-clamp-2">
+        <h3 className="mt-0.5 line-clamp-1 text-[15px] font-semibold leading-snug text-gray-50">
           {fragrance.name}
         </h3>
 
-        {cheapest ? (
-          <div className="mt-auto pt-2 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400">From</p>
-              <p className="text-base font-bold text-brand-600 dark:text-brand-400">
-                {formatPrice(cheapest.last_price!, cheapest.currency)}
+        {cheapest?.last_price != null ? (
+          <div className="mt-auto pt-2">
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+              <p className={cn('text-lg font-bold', soldOut ? 'text-gray-500 line-through' : 'text-gray-50')}>
+                {formatPrice(Number(cheapest.last_price), cheapest.currency)}
               </p>
+              {goodDeal && (
+                <span className="whitespace-nowrap rounded-full border border-brand-700 bg-brand-950/60 px-2.5 py-0.5 text-[11px] font-medium text-brand-300">
+                  Good Deal
+                </span>
+              )}
             </div>
-            <TrendingDown className="h-4 w-4 text-green-500" aria-label="Price available" />
+            {cheapest.size_ml && <p className="mt-0.5 text-xs text-gray-400">{cheapest.size_ml} ml</p>}
           </div>
         ) : (
-          <p className="mt-auto pt-2 text-xs text-gray-400 italic">No prices yet</p>
+          <p className="mt-auto pt-2 text-xs italic text-gray-500">No prices yet</p>
         )}
       </div>
     </Link>

@@ -47,12 +47,12 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="card p-6 flex flex-col gap-4">
           {searchParams.get('registered') && !error && (
-            <div className="px-3 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 text-sm border border-green-200 dark:border-green-800">
+            <div className="px-3 py-2 rounded-lg bg-green-950/30 text-green-400 text-sm border border-green-800">
               Account created. Sign in to continue.
             </div>
           )}
           {error && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-200 dark:border-red-800">
+            <div className="px-3 py-2 rounded-lg bg-red-950/30 text-red-400 text-sm border border-red-800">
               {error}
             </div>
           )}
@@ -92,7 +92,7 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-gray-500 mt-4">
           Don&apos;t have an account?{' '}
-          <Link href={`/register?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-brand-600 dark:text-brand-400 hover:underline font-medium">
+          <Link href={`/register?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-brand-400 hover:underline font-medium">
             Create one
           </Link>
         </p>

@@ -43,3 +43,8 @@ export function formatSize(ml: number | null): string {
 export function safeCallbackUrl(value: string | null, fallback = '/dashboard'): string {
   return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : fallback;
 }
+
+// Bottle photos we've composited onto the shared backdrop (see scraper/src/images)
+export function isStagedImage(url: string | null | undefined): boolean {
+  return !!url && url.startsWith('/bottles/');
+}

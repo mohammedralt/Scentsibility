@@ -65,11 +65,11 @@ function FilterSelect({
         className={`appearance-none cursor-pointer pl-3.5 pr-8 py-1.5 rounded-full text-sm border transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 ${
           active
             ? 'bg-brand-600 text-white border-brand-600'
-            : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400'
+            : 'bg-gray-900 text-gray-200 border-gray-700 hover:border-brand-400'
         }`}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} className="text-gray-900">
+          <option key={o.value} value={o.value} className="text-gray-50">
             {o.label}
           </option>
         ))}
@@ -121,7 +121,7 @@ export function SearchFilters({ stores }: SearchFiltersProps) {
         className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border transition-colors ${
           inStock
             ? 'bg-brand-600 text-white border-brand-600'
-            : 'bg-white text-gray-700 border-gray-300 hover:border-brand-400'
+            : 'bg-gray-900 text-gray-200 border-gray-700 hover:border-brand-400'
         }`}
       >
         {inStock && <Check className="h-3.5 w-3.5" />}

@@ -4,9 +4,10 @@ name: Refresh prices
 # Runs on GitHub's servers, so prices stay current without a laptop running.
 #
 # Needs these repository secrets (Settings → Secrets and variables → Actions):
-#   DATABASE_URL    same Postgres connection string the web app uses (required)
-#   RESEND_API_KEY  for alert emails (optional — without it prices still refresh)
-#   EMAIL_FROM      sender address, e.g. alerts@yourdomain.com (optional)
+#   DATABASE_URL        same Postgres connection string the web app uses (required)
+#   GMAIL_USER          Gmail address alert emails are sent from (optional)
+#   GMAIL_APP_PASSWORD  16-character Google app password for that account (optional)
+# Without the Gmail pair, prices still refresh; alerts just aren't emailed.
 
 on:
   schedule:
@@ -17,6 +18,10 @@ on:
         description: 'Also search every retailer for fragrances that have no prices yet'
         type: boolean
         default: false
+      test_email:
+        description: 'Send a sample alert to this address first (checks email setup)'
+        type: string
+        default: ''
 
 concurrency:
   group: refresh-prices
@@ -31,6 +36,8 @@ jobs:
         working-directory: scraper
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      GMAIL_USER: ${{ secrets.GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
       APP_URL: https://scentsibility.vercel.app
@@ -53,6 +60,12 @@ jobs:
           fi
 
       - run: npm ci --include=dev # ts-node is a devDependency; NODE_ENV=production would skip it
+
+      - name: Send test email
+        if: github.event_name == 'workflow_dispatch' && inputs.test_email != ''
+        env:
+          TEST_EMAIL: ${{ inputs.test_email }}
+        run: npm run test-email -- "$TEST_EMAIL"
 
       - name: Install Chromium (for Jomashop)
         run: npx playwright install --with-deps chromium

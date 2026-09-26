@@ -55,7 +55,7 @@ export default function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="card p-6 flex flex-col gap-4">
           {error && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-200 dark:border-red-800">
+            <div className="px-3 py-2 rounded-lg bg-red-950/30 text-red-400 text-sm border border-red-800">
               {error}
             </div>
           )}
@@ -112,7 +112,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-sm text-gray-500 mt-4">
           Already have an account?{' '}
-          <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-brand-600 dark:text-brand-400 hover:underline font-medium">
+          <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-brand-400 hover:underline font-medium">
             Sign in
           </Link>
         </p>

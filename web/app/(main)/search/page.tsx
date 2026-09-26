@@ -5,7 +5,7 @@ import { searchFragrances, getFragrancePrices, countFragrances, getRetailers } f
 import { FragranceListItem } from '@/components/FragranceListItem';
 import { SearchFilters } from '@/components/SearchFilters';
 import type { TrackedProduct } from '@/lib/types';
-import { cheapestBottle, bottlesOnly } from '@/lib/listings';
+import { summarizeListings, bottlesOnly } from '@/lib/listings';
 
 interface SearchPageProps {
   searchParams: {
@@ -106,9 +106,10 @@ async function Results({ filters }: { filters: Filters }) {
   let rows = withData
     .filter((r) => r.relevant.length > 0)
     .map((r) => {
-      const cheapest = cheapestBottle(r.relevant); // skips samples unless that's all there is
+      // Cheapest in-stock bottle; samples only count if that's all there is
+      const { cheapest, soldOut } = summarizeListings(r.relevant);
       const storeCount = new Set(r.relevant.map((p) => p.retailer_key)).size;
-      return { ...r, cheapest, storeCount };
+      return { ...r, cheapest, soldOut, storeCount };
     });
 
   // Sorting
@@ -120,9 +121,7 @@ async function Results({ filters }: { filters: Filters }) {
     rows.sort((a, b) => priceOf(a.cheapest) - priceOf(b.cheapest));
   } else if (filters.sort === 'price_desc') {
     rows.sort((a, b) => priceOf(b.cheapest) - priceOf(a.cheapest));
-  } else if (filters.sort === 'name_asc') {
-    rows.sort((a, b) =>
-      `${a.fragrance.brand} ${a.fragrance.name}`.localeCompare(`${b.fragrance.brand} ${b.fragrance.name}`)
+  } else if (filters.sort === 'name_asc') {rows.sort((a, b) => `${a.fragrance.brand} ${a.fragrance.name}`.localeCompare(`${b.fragrance.brand} ${b.fragrance.name}`)
     );
   } else if (filters.sort === 'best_deal') {
     // Lowest cheapest-vs-average ratio = best relative deal
@@ -148,11 +147,12 @@ async function Results({ filters }: { filters: Filters }) {
         {!filters.query && total > 0 && ` of ${total}`}
       </p>
       <div className="flex flex-col gap-3">
-        {rows.map(({ fragrance, cheapest, storeCount, relevant }) => (
+        {rows.map(({ fragrance, cheapest, soldOut, storeCount, relevant }) => (
           <FragranceListItem
             key={fragrance.id}
             fragrance={fragrance}
             cheapest={cheapest}
+            soldOut={soldOut}
             storeCount={storeCount}
             allPrices={bottlesOnly(relevant)}
           />
@@ -196,7 +196,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               name="q"
               defaultValue={filters.query}
               placeholder="Search by brand or fragrance name…"
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-700 bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
           <button type="submit" className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
@@ -212,7 +212,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         fallback={
           <div className="flex flex-col gap-3">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-xl bg-gray-100 animate-pulse" />
+              <div key={i} className="h-24 rounded-xl bg-gray-800 animate-pulse" />
             ))}
           </div>
         }

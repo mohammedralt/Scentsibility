@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 import { Bell, BellOff, ExternalLink, TrendingDown, Plus } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getUserWatchlist } from '@/lib/db';
-import { formatPrice, formatDate } from '@/lib/utils';
+import { formatPrice, formatDate, isStagedImage } from '@/lib/utils';
 import { RemoveWatchlistButton } from '@/components/RemoveWatchlistButton';
 
 export const metadata: Metadata = { title: 'My Watchlist' };
@@ -34,7 +34,7 @@ export default async function DashboardPage() {
 
       {watchlist.length === 0 ? (
         <div className="card p-12 text-center">
-          <Bell className="h-10 w-10 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+          <Bell className="h-10 w-10 text-gray-700 mx-auto mb-4" />
           <h2 className="text-lg font-semibold mb-1">No fragrances tracked yet</h2>
           <p className="text-sm text-gray-500 mb-6">
             Search for a fragrance and hit &ldquo;Track price&rdquo; to start monitoring deals.
@@ -48,14 +48,14 @@ export default async function DashboardPage() {
           {watchlist.map((item) => (
             <div key={item.id} className="card p-4 flex items-center gap-4">
               {/* Thumbnail */}
-              <div className="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <div className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gray-800 flex items-center justify-center">
                 {item.fragrance_image ? (
                   <Image
                     src={item.fragrance_image}
                     alt={item.fragrance_name}
-                    width={64}
-                    height={64}
-                    className="object-contain p-1"
+                    fill
+                    sizes="64px"
+                    className={isStagedImage(item.fragrance_image) ? 'object-cover scale-125' : 'object-contain p-1'}
                   />
                 ) : (
                   <span className="text-2xl">🌸</span>
@@ -67,7 +67,7 @@ export default async function DashboardPage() {
                 <p className="text-xs text-gray-400 uppercase tracking-wide">{item.fragrance_brand}</p>
                 <Link
                   href={`/fragrance/${item.fragrance_id}`}
-                  className="font-semibold text-sm hover:text-brand-600 dark:hover:text-brand-400 truncate block"
+                  className="font-semibold text-sm hover:text-brand-400 truncate block"
                 >
                   {item.fragrance_name}
                 </Link>
@@ -76,7 +76,7 @@ export default async function DashboardPage() {
                   {item.cheapest_price ? (
                     <div className="flex items-center gap-1.5 text-sm">
                       <TrendingDown className="h-3.5 w-3.5 text-green-500" />
-                      <span className="font-bold text-brand-600 dark:text-brand-400">
+                      <span className="font-bold text-brand-400">
                         {formatPrice(item.cheapest_price, item.cheapest_currency!)}
                       </span>
                       <span className="text-gray-400 text-xs">at {item.cheapest_retailer}</span>

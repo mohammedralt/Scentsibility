@@ -20,7 +20,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-screen flex flex-col">
         <Header session={session} />
         <main className="flex-1">{children}</main>
-        <footer className="border-t border-gray-200 dark:border-gray-800 py-8 mt-16">
+        <footer className="border-gray-800 py-8 mt-16">
           <div className="max-w-6xl mx-auto px-4 text-center text-sm text-gray-500">
             © {new Date().getFullYear()} Scentsibility — Prices updated every 12 hours.
             Not affiliated with any retailer.

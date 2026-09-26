@@ -4,7 +4,7 @@
  */
 import { getPool, recordPriceSnapshot, getWatchersToNotify, logNotificationSent, getFragranceBestPrice } from '../db/client';
 import { ProductListing } from '../types';
-import { sendPriceAlert } from './email';
+import { sendPriceAlert, emailConfigured } from './email';
 import logger from '../logger';
 
 // Retailers are scraped concurrently, so two listings of the same fragrance can
@@ -52,8 +52,8 @@ async function recordAndAlert(
   const watchers = await getWatchersToNotify(fragranceId, newBest);
   if (watchers.length === 0) return { alertsSent: 0 };
 
-  if (!process.env.RESEND_API_KEY) {
-    logger.warn({ fragranceId, watchers: watchers.length }, 'New best deal but RESEND_API_KEY is not set — skipping alerts');
+  if (!emailConfigured()) {
+    logger.warn({ fragranceId, watchers: watchers.length }, 'New best deal but no email provider is configured — skipping alerts');
     return { alertsSent: 0 };
   }
 

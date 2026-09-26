@@ -1,7 +1,9 @@
 /**
- * Email notifications via Resend (https://resend.com).
- * Set RESEND_API_KEY in .env. Free tier: 3,000 emails/month.
+ * Email notifications. Sends through Gmail when GMAIL_USER and
+ * GMAIL_APP_PASSWORD are set (free, no domain needed, ~500 emails/day),
+ * otherwise through Resend when RESEND_API_KEY is set.
  */
+import nodemailer from 'nodemailer';
 
 interface PriceAlertParams {
   toEmail: string;
@@ -16,48 +18,89 @@ interface PriceAlertParams {
   previousBest: number | null;
 }
 
-export async function sendPriceAlert(params: PriceAlertParams): Promise<void> {
+interface Email {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+export function emailConfigured(): boolean {
+  return !!(process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) || !!process.env.RESEND_API_KEY;
+}
+
+let gmail: nodemailer.Transporter | null = null;
+
+export async function sendEmail({ to, subject, html }: Email): Promise<void> {
+  const gmailUser = process.env.GMAIL_USER;
+  const gmailPassword = process.env.GMAIL_APP_PASSWORD;
+
+  if (gmailUser && gmailPassword) {
+    gmail ??= nodemailer.createTransport({
+      service: 'gmail',
+      // App passwords are shown with spaces ("abcd efgh ijkl mnop"); Gmail wants them without
+      auth: { user: gmailUser.trim(), pass: gmailPassword.replace(/\s+/g, '') },
+    });
+    await gmail.sendMail({ from: `Scentsibility <${gmailUser.trim()}>`, to, subject, html });
+    return;
+  }
+
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY not set');
-
-  const fromEmail = process.env.EMAIL_FROM ?? 'alerts@yourdomain.com';
-  const formattedPrice = `${params.currency} $${params.price.toFixed(2)}`;
-  const subject = `New best deal: ${params.brand} ${params.fragranceName} just hit ${formattedPrice}`;
-
-  const html = `
-    <h2>New Best Deal</h2>
-    <p><strong>${params.brand} ${params.fragranceName}</strong> just dropped to its lowest price yet —
-    <strong>${formattedPrice}</strong> on ${params.retailerName}.</p>
-    ${params.previousBest ? `<p>Previously as low as $${params.previousBest.toFixed(2)}.</p>` : ''}
-    ${params.threshold ? `<p>This is below your alert threshold of $${params.threshold.toFixed(2)}.</p>` : ''}
-    <p><a href="${params.productUrl}" style="
-      background:#1a1a2e;color:#fff;padding:10px 20px;
-      border-radius:4px;text-decoration:none;display:inline-block;margin-top:8px
-    ">View Deal</a></p>
-    ${params.fragrancePageUrl ? `<p><a href="${params.fragrancePageUrl}">Compare prices across all retailers</a></p>` : ''}
-    <hr/>
-    <p style="font-size:12px;color:#888">
-      You're receiving this because you have a price alert set up.
-      <a href="${process.env.APP_URL ?? '#'}/dashboard">Manage alerts</a>
-    </p>
-  `;
+  if (!apiKey) throw new Error('No email provider configured (set GMAIL_USER + GMAIL_APP_PASSWORD, or RESEND_API_KEY)');
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: fromEmail,
-      to: [params.toEmail],
-      subject,
-      html,
-    }),
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: process.env.EMAIL_FROM ?? 'onboarding@resend.dev', to: [to], subject, html }),
   });
-
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`Resend API error ${response.status}: ${body}`);
+    throw new Error(`Resend API error ${response.status}: ${await response.text()}`);
   }
+}
+
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+const money = (n: number) => `$${n.toFixed(2)}`;
+
+export function renderPriceAlert(params: PriceAlertParams): Email {
+  const name = escapeHtml(`${params.brand} ${params.fragranceName}`);
+  const appUrl = process.env.APP_URL ?? 'https://scentsibility.vercel.app';
+  const subject = `New best deal: ${params.brand} ${params.fragranceName} just hit ${money(params.price)}`;
+
+  const details = [
+    params.previousBest ? `Previous best ${money(params.previousBest)}` : null,
+    params.threshold ? `Your target ${money(params.threshold)}` : null,
+  ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+
+  const html = `<!doctype html>
+<html><body style="margin:0;padding:0;background:#0e0d0c;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#f2f0ed">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0e0d0c;padding:32px 16px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#1c1a18;border:1px solid #2b2724;border-radius:16px">
+        <tr><td style="padding:28px 28px 8px">
+          <p style="margin:0 0 20px;font-weight:700;font-size:18px;color:#2dd4bf">Scentsibility</p>
+          <p style="margin:0;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:#a39c94">New best deal</p>
+          <p style="margin:6px 0 0;font-size:20px;font-weight:600;color:#faf9f7">${name}</p>
+          <p style="margin:14px 0 0;font-size:34px;font-weight:700;color:#faf9f7">${money(params.price)}</p>
+          <p style="margin:4px 0 0;font-size:14px;color:#a39c94">at ${escapeHtml(params.retailerName)}</p>
+          ${details ? `<p style="margin:12px 0 0;font-size:13px;color:#a39c94">${details}</p>` : ''}
+        </td></tr>
+        <tr><td style="padding:20px 28px 8px">
+          <a href="${params.productUrl}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:10px">View deal</a>
+          ${params.fragrancePageUrl ? `<a href="${params.fragrancePageUrl}" style="display:inline-block;margin-left:8px;color:#cbc5be;text-decoration:none;font-size:14px;padding:12px 8px">Compare all stores</a>` : ''}
+        </td></tr>
+        <tr><td style="padding:20px 28px 26px">
+          <p style="margin:0;font-size:12px;color:#7d766f">You're getting this because you're tracking this fragrance.
+          <a href="${appUrl}/dashboard" style="color:#a39c94">Manage alerts</a></p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  return { to: params.toEmail, subject, html };
+}
+
+export async function sendPriceAlert(params: PriceAlertParams): Promise<void> {
+  await sendEmail(renderPriceAlert(params));
 }

@@ -1,6 +1,20 @@
 import { Pool } from 'pg';
 import type { Fragrance, TrackedProduct, PriceSnapshot, WatchlistItem } from './types';
 import { cheapestBottle } from './listings';
+import stagedBottles from './staged-bottles.json';
+
+// Bottle photos composited onto the shared backdrop by scraper/images/stage_bottles.py.
+// They ship in web/public/bottles with the same deploy as this manifest.
+const STAGED = stagedBottles as Record<string, string>;
+
+export function bottleImage(fragranceId: string, fallback: string | null): string | null {
+  const file = STAGED[fragranceId];
+  return file ? `/bottles/${file}` : fallback;
+}
+
+function withBottleImage<T extends { id: string; image_url: string | null }>(f: T): T {
+  return { ...f, image_url: bottleImage(f.id, f.image_url) };
+}
 
 let pool: Pool | null = null;
 
@@ -23,7 +37,7 @@ export async function searchFragrances(query: string, limit = 20): Promise<Fragr
       `SELECT * FROM fragrances ORDER BY brand, name LIMIT $1`,
       [limit]
     );
-    return rows;
+    return rows.map(withBottleImage);
   }
   const { rows } = await getPool().query<Fragrance>(
     `SELECT * FROM fragrances
@@ -34,7 +48,7 @@ export async function searchFragrances(query: string, limit = 20): Promise<Fragr
      LIMIT $3`,
     [query, `%${query}%`, limit]
   );
-  return rows;
+  return rows.map(withBottleImage);
 }
 
 export async function countFragrances(): Promise<number> {
@@ -54,7 +68,7 @@ export async function getFragranceById(id: string): Promise<Fragrance | null> {
     `SELECT * FROM fragrances WHERE id = $1`,
     [id]
   );
-  return rows[0] ?? null;
+  return rows[0] ? withBottleImage(rows[0]) : null;
 }
 
 export async function getFeaturedFragrances(limit = 12): Promise<Fragrance[]> {
@@ -68,7 +82,7 @@ export async function getFeaturedFragrances(limit = 12): Promise<Fragrance[]> {
      LIMIT $1`,
     [limit]
   );
-  return rows;
+  return rows.map(withBottleImage);
 }
 
 // ─── Prices ───────────────────────────────────────────────────────────────────
@@ -149,6 +163,7 @@ export async function getUserWatchlist(userId: string): Promise<WatchlistItem[]>
       const cheapest = cheapestBottle(await getFragrancePrices(row.fragrance_id));
       return {
         ...row,
+        fragrance_image: bottleImage(row.fragrance_id, row.fragrance_image),
         alert_threshold: row.alert_threshold != null ? Number(row.alert_threshold) : null,
         cheapest_price: cheapest?.last_price != null ? Number(cheapest.last_price) : null,
         cheapest_retailer: cheapest?.retailer_name ?? null,

@@ -112,7 +112,7 @@ export function WatchlistButton({
         </button>
         <button
           onClick={() => setFormOpen((o) => !o)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-700 bg-gray-900 text-gray-200 text-sm font-medium hover:bg-gray-800 transition-colors"
         >
           <BellRing className="h-4 w-4" />
           {threshold != null ? `Alert at ${formatPrice(threshold, 'USD')}` : 'Set Price Alert'}
@@ -149,7 +149,7 @@ export function WatchlistButton({
         </form>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-400">{error}</p>}
     </div>
   );
 }

@@ -59,9 +59,9 @@ export function rankListings(listings: TrackedProduct[]): { listing: TrackedProd
     .sort((a, b) => order[a.kind] - order[b.kind] || Number(a.listing.last_price) - Number(b.listing.last_price));
 }
 
-/** The cheapest listing that isn't a sample, falling back to the cheapest overall. */
+/** The cheapest in-stock bottle (not a sample), falling back to last-seen prices when sold out. */
 export function cheapestBottle(listings: TrackedProduct[]): TrackedProduct | null {
-  return rankListings(listings)[0]?.listing ?? null;
+  return summarizeListings(listings).cheapest;
 }
 
 /** Listings excluding samples (or all of them, if every listing is a sample). */
@@ -69,4 +69,33 @@ export function bottlesOnly(listings: TrackedProduct[]): TrackedProduct[] {
   const kinds = classifyListings(listings);
   const bottles = listings.filter((p) => kinds.get(p.id) !== 'sample');
   return bottles.length > 0 ? bottles : listings;
+}
+
+// Never-scraped listings (null) count as available; only an explicit false is sold out
+export const isAvailable = (p: TrackedProduct) => p.last_in_stock !== false;
+
+export interface ListingSummary {
+  /** Cheapest in-stock full bottle, or the cheapest last-seen bottle when sold out */
+  cheapest: TrackedProduct | null;
+  /** Every full-bottle listing is out of stock */
+  soldOut: boolean;
+  /** Cheapest in-stock bottle is well below the average in-stock bottle price */
+  goodDeal: boolean;
+}
+
+export function summarizeListings(listings: TrackedProduct[]): ListingSummary {
+  const bottles = rankListings(listings).map((r) => r.listing);
+  if (bottles.length === 0) return { cheapest: null, soldOut: false, goodDeal: false };
+
+  const nonSample = bottlesOnly(listings);
+  const available = nonSample.filter(isAvailable);
+  const cheapest = rankListings(available)[0]?.listing ?? bottles[0];
+  const soldOut = available.length === 0;
+
+  let goodDeal = false;
+  if (!soldOut && available.length >= 2 && cheapest.last_price != null) {
+    const avg = available.reduce((s, p) => s + Number(p.last_price ?? 0), 0) / available.length;
+    goodDeal = Number(cheapest.last_price) < avg * 0.88;
+  }
+  return { cheapest, soldOut, goodDeal };
 }
