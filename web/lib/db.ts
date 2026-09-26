@@ -177,19 +177,25 @@ export async function removeFromWatchlist(userId: string, itemId: string): Promi
   );
 }
 
-export async function isWatching(userId: string, fragranceId: string): Promise<boolean> {
-  const { rows } = await getPool().query(
-    `SELECT 1 FROM watchlist_items WHERE user_id = $1 AND fragrance_id = $2`,
+export async function getWatchlistItem(
+  userId: string,
+  fragranceId: string
+): Promise<{ id: string; alert_threshold: number | null } | null> {
+  const { rows } = await getPool().query<{ id: string; alert_threshold: string | null }>(
+    `SELECT id, alert_threshold FROM watchlist_items WHERE user_id = $1 AND fragrance_id = $2`,
     [userId, fragranceId]
   );
-  return rows.length > 0;
+  if (!rows[0]) return null;
+  // NUMERIC comes back from pg as a string
+  const threshold = rows[0].alert_threshold;
+  return { id: rows[0].id, alert_threshold: threshold != null ? Number(threshold) : null };
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export async function getUserByEmail(email: string) {
   const { rows } = await getPool().query(
-    `SELECT * FROM users WHERE email = $1`,
+    `SELECT * FROM users WHERE LOWER(email) = LOWER($1)`,
     [email]
   );
   return rows[0] ?? null;

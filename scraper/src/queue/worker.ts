@@ -7,9 +7,8 @@
 import 'dotenv/config';
 import { Worker, Job } from 'bullmq';
 import { getScraper } from '../retailers/registry';
-import { recordPriceSnapshot, getWatchersToNotify, logNotificationSent, getFragranceBestPrice } from '../db/client';
 import { ScrapeJobPayload } from '../types';
-import { sendPriceAlert } from '../notifications/email';
+import { recordPriceAndAlert } from '../notifications/alerts';
 import logger from '../logger';
 
 const QUEUE_NAME = 'scrape-jobs';
@@ -35,46 +34,8 @@ async function processJob(job: Job<ScrapeJobPayload>): Promise<void> {
   }
 
   const product = result.products[0];
-
-  // Capture the fragrance's cheapest price across all retailers before this
-  // scrape overwrites it, so we can tell whether this scrape set a new low.
-  const previousBest = await getFragranceBestPrice(fragrance_id);
-  await recordPriceSnapshot(tracked_product_id, product.price, product.currency, product.in_stock);
-  logger.info({ retailer_key, price: product.price, currency: product.currency }, 'Price recorded');
-
-  const newBest = await getFragranceBestPrice(fragrance_id);
-  // Only alert on an actual new low — not on every re-scrape, and not on the
-  // very first price ever recorded for a fragrance (nothing to compare it to).
-  const isNewBestDeal = previousBest !== null && newBest !== null && newBest < previousBest;
-
-  if (isNewBestDeal) {
-    const watchers = await getWatchersToNotify(fragrance_id, newBest!);
-
-    for (const watcher of watchers) {
-      try {
-        await sendPriceAlert({
-          toEmail: watcher.email,
-          fragranceName: product.name,
-          brand: product.brand,
-          retailerName: retailer_key,
-          price: newBest!,
-          currency: product.currency,
-          productUrl: product_url,
-          threshold: watcher.alert_threshold,
-          previousBest,
-        });
-
-        await logNotificationSent(
-          watcher.user_id,
-          watcher.watchlist_item_id,
-          tracked_product_id,
-          newBest!
-        );
-      } catch (err) {
-        logger.error({ err, userId: watcher.user_id }, 'Failed to send price alert email');
-      }
-    }
-  }
+  const { alertsSent } = await recordPriceAndAlert(tracked_product_id, fragrance_id, retailer_key, product);
+  logger.info({ retailer_key, price: product.price, currency: product.currency, alertsSent }, 'Price recorded');
 }
 
 const worker = new Worker<ScrapeJobPayload>(QUEUE_NAME, processJob, {

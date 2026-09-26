@@ -38,3 +38,8 @@ export function formatSize(ml: number | null): string {
   const oz = (ml / 29.5735).toFixed(1);
   return `${ml}ml / ${oz} oz`;
 }
+
+// Only follow same-site paths after login, never "//evil.com" or "https://…"
+export function safeCallbackUrl(value: string | null, fallback = '/dashboard'): string {
+  return value && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : fallback;
+}

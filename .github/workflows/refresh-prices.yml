@@ -1,0 +1,65 @@
+name: Refresh prices
+
+# Re-scrapes every tracked listing and emails watchers about new best deals.
+# Runs on GitHub's servers, so prices stay current without a laptop running.
+#
+# Needs these repository secrets (Settings → Secrets and variables → Actions):
+#   DATABASE_URL    same Postgres connection string the web app uses (required)
+#   RESEND_API_KEY  for alert emails (optional — without it prices still refresh)
+#   EMAIL_FROM      sender address, e.g. alerts@yourdomain.com (optional)
+
+on:
+  schedule:
+    - cron: '17 */12 * * *' # every 12 hours
+  workflow_dispatch:
+    inputs:
+      discover:
+        description: 'Also search every retailer for fragrances that have no prices yet'
+        type: boolean
+        default: false
+
+concurrency:
+  group: refresh-prices
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    defaults:
+      run:
+        working-directory: scraper
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      APP_URL: https://scentsibility.vercel.app
+      NODE_ENV: production
+      LOG_LEVEL: info
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: scraper/package-lock.json
+
+      - name: Check DATABASE_URL secret
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::Add a DATABASE_URL repository secret (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: Install Chromium (for Jomashop)
+        run: npx playwright install --with-deps chromium
+
+      - name: Refresh tracked prices
+        run: npm run refresh -- --max-minutes 300
+
+      - name: Find prices for fragrances that have none
+        if: github.event_name == 'workflow_dispatch' && inputs.discover
+        run: npm run populate -- --missing

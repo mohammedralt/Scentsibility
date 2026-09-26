@@ -130,6 +130,20 @@ export class ShopifyScraper extends BaseScraper {
     };
   }
 
+  override async scrapeUrl(url: string): Promise<ScrapeResult> {
+    const start = Date.now();
+    const product = await this.scrapeProductPage(url);
+    return {
+      retailer_key: this.config.key,
+      query: url,
+      products: product ? [product] : [],
+      scraped_at: new Date(),
+      success: product !== null,
+      error: product ? undefined : 'product not found',
+      duration_ms: Date.now() - start,
+    };
+  }
+
   async scrapeProductPage(url: string): Promise<ProductListing | null> {
     const handle = url.match(/\/products\/([^?#/]+)/)?.[1];
     if (!handle) return null;
@@ -141,8 +155,12 @@ export class ShopifyScraper extends BaseScraper {
       });
 
       const variants: ShopifyVariant[] = data.variants ?? [];
+      // Tracked URLs pin a specific variant (size) — price that one, not whichever
+      // variant happens to be first, or a 100ml listing picks up the 50ml price.
+      const variantId = url.match(/[?&]variant=(\d+)/)?.[1];
+      const pinned = variantId ? variants.find((v) => String(v.id) === variantId) : undefined;
       const available = variants.filter((v) => v.available);
-      const best = available[0] ?? variants[0];
+      const best = pinned ?? available[0] ?? variants[0];
       if (!best) return null;
 
       // product.js prices are in cents
