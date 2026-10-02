@@ -6,6 +6,7 @@
  *   ts-node src/populate-prices.ts
  *   ts-node src/populate-prices.ts --retailer beautyhouse   # single retailer
  *   ts-node src/populate-prices.ts --limit 10               # first 10 fragrances only
+ *   ts-node src/populate-prices.ts --brand "Le Labo,Bond No. 9" # only these brands
  */
 import 'dotenv/config';
 import { getPool, getRetailerId, upsertTrackedProduct, recordPriceSnapshot } from './db/client';
@@ -61,6 +62,8 @@ async function main() {
   // --missing: only fragrances that don't already have a live price. Makes the
   // run resumable — relaunch after a connection drop and it picks up the rest.
   const missingOnly = args.includes('--missing');
+  // --brand "Le Labo,Bond No. 9": only these brands (case-insensitive)
+  const brands = (flagValue('--brand') ?? '').split(',').map((b) => b.trim().toLowerCase()).filter(Boolean);
 
   const retailerKeys = retailerArg ? [retailerArg] : getRetailerKeys();
 
@@ -76,7 +79,8 @@ async function main() {
       : `SELECT id, name, brand FROM fragrances ORDER BY brand, name`
   );
 
-  const toProcess = limitArg ? fragrances.slice(0, limitArg) : fragrances;
+  const wanted = brands.length ? fragrances.filter((f) => brands.includes(f.brand.toLowerCase())) : fragrances;
+  const toProcess = limitArg ? wanted.slice(0, limitArg) : wanted;
   console.log(`\nProcessing ${toProcess.length} fragrances × ${retailerKeys.length} retailers\n`);
 
   let totalSaved = 0;

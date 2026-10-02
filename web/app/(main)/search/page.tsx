@@ -71,7 +71,7 @@ async function Results({ filters }: { filters: Filters }) {
 
   let fragrances;
   try {
-    fragrances = await searchFragrances(filters.query, 300);
+    fragrances = await searchFragrances(filters.query, 300, { gender: filters.gender, listedOnly: true });
   } catch {
     return (
       <div className="text-center py-20 text-gray-500">
@@ -81,9 +81,6 @@ async function Results({ filters }: { filters: Filters }) {
     );
   }
 
-  if (filters.gender) {
-    fragrances = fragrances.filter((f) => f.gender === filters.gender);
-  }
   if (filters.season) {
     fragrances = fragrances.filter((f) => seasonMatches(f, filters.season));
   }

@@ -113,6 +113,8 @@ npm run import -- data/fragrances.csv --limit 700
 npm run populate                                 # then scrape prices and images
 ```
 
+Or let GitHub do it: commit the CSV under `scraper/data/`, then Actions → Add fragrances → Run workflow with its path. It imports the file and scrapes prices for those brands only.
+
 If the file has no season columns, the importer works out season scores from each fragrance's main accords (warm notes like vanilla and amber lean fall and winter, fresh notes like citrus and aquatic lean spring and summer).
 
 ## Retailers

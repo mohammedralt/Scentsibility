@@ -31,22 +31,38 @@ function getPool(): Pool {
 
 // ─── Fragrances ──────────────────────────────────────────────────────────────
 
-export async function searchFragrances(query: string, limit = 20): Promise<Fragrance[]> {
-  if (!query.trim()) {
-    const { rows } = await getPool().query<Fragrance>(
-      `SELECT * FROM fragrances ORDER BY brand, name LIMIT $1`,
-      [limit]
-    );
-    return rows.map(withBottleImage);
+export interface SearchOptions {
+  /** Only this gender ('male' | 'female' | 'unisex'). */
+  gender?: string;
+  /** Only fragrances with at least one tracked listing. */
+  listedOnly?: boolean;
+}
+
+export async function searchFragrances(query: string, limit = 20, opts: SearchOptions = {}): Promise<Fragrance[]> {
+  // Filter in SQL rather than after the LIMIT, so a big catalog can't push
+  // matching fragrances past the cut-off (e.g. women's scents late in A–Z).
+  const params: unknown[] = [];
+  const where: string[] = [];
+  if (query.trim()) {
+    params.push(query, `%${query}%`);
+    where.push(`(to_tsvector('english', name || ' ' || brand) @@ plainto_tsquery('english', $1)
+        OR name ILIKE $2
+        OR brand ILIKE $2)`);
   }
+  if (opts.gender) {
+    params.push(opts.gender);
+    where.push(`gender = $${params.length}`);
+  }
+  if (opts.listedOnly) {
+    where.push(`EXISTS (SELECT 1 FROM tracked_products tp WHERE tp.fragrance_id = fragrances.id)`);
+  }
+  params.push(limit);
   const { rows } = await getPool().query<Fragrance>(
     `SELECT * FROM fragrances
-     WHERE to_tsvector('english', name || ' ' || brand) @@ plainto_tsquery('english', $1)
-        OR name ILIKE $2
-        OR brand ILIKE $2
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
      ORDER BY brand, name
-     LIMIT $3`,
-    [query, `%${query}%`, limit]
+     LIMIT $${params.length}`,
+    params
   );
   return rows.map(withBottleImage);
 }
