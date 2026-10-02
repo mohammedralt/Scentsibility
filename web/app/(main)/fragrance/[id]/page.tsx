@@ -13,7 +13,7 @@ import {
 import { auth } from '@/lib/auth';
 import { PriceHistoryChart } from '@/components/PriceHistoryChart';
 import { WatchlistButton } from '@/components/WatchlistButton';
-import { formatPrice, timeAgo, formatSize, isStagedImage } from '@/lib/utils';
+import { formatPrice, timeAgo, formatSize, isStagedImage, canOptimizeImage } from '@/lib/utils';
 import { rankListings, summarizeListings, isAvailable, type ListingKind } from '@/lib/listings';
 import type { TrackedProduct } from '@/lib/types';
 
@@ -27,6 +27,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${fragrance.brand} ${fragrance.name} — Price Comparison`,
     description: `Compare prices for ${fragrance.brand} ${fragrance.name} across multiple retailers.`,
+    alternates: { canonical: `/fragrance/${fragrance.id}` },
   };
 }
 
@@ -84,6 +85,7 @@ export default async function FragrancePage({ params }: PageProps) {
           {fragrance.image_url ? (
             <Image
               src={fragrance.image_url}
+              unoptimized={!canOptimizeImage(fragrance.image_url)}
               alt={`${fragrance.brand} ${fragrance.name}`}
               fill
               sizes="224px"

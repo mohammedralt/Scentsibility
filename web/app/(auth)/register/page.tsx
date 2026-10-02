@@ -108,6 +108,11 @@ export default function RegisterPage() {
           <button type="submit" disabled={isPending} className="btn-primary justify-center py-2.5 mt-1">
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create account'}
           </button>
+          <p className="text-xs text-gray-500 text-center">
+            By creating an account you agree to our{' '}
+            <Link href="/terms" className="underline hover:text-gray-300">Terms</Link> and{' '}
+            <Link href="/privacy" className="underline hover:text-gray-300">Privacy Policy</Link>.
+          </p>
         </form>
 
         <p className="text-center text-sm text-gray-500 mt-4">

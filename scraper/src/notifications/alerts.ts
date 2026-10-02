@@ -79,6 +79,7 @@ async function recordAndAlert(
         fragrancePageUrl: process.env.APP_URL ? `${process.env.APP_URL}/fragrance/${fragranceId}` : null,
         threshold: watcher.alert_threshold != null ? Number(watcher.alert_threshold) : null,
         previousBest,
+        watchlistItemId: watcher.watchlist_item_id,
       });
       await logNotificationSent(watcher.user_id, watcher.watchlist_item_id, trackedProductId, newBest);
       alertsSent++;

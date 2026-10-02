@@ -59,6 +59,7 @@ export interface WatchlistItem {
   fragrance_brand: string;
   fragrance_image: string | null;
   alert_threshold: number | null;
+  notify_email: boolean;
   cheapest_price: number | null;
   cheapest_retailer: string | null;
   cheapest_currency: Currency | null;

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Fragrance, TrackedProduct } from '@/lib/types';
-import { formatPrice, formatSize, isStagedImage } from '@/lib/utils';
+import { formatPrice, formatSize, isStagedImage, canOptimizeImage } from '@/lib/utils';
 
 interface Props {
   fragrance: Fragrance;
@@ -34,6 +34,7 @@ export function FragranceListItem({ fragrance, cheapest, soldOut = false, storeC
         {fragrance.image_url ? (
           <Image
             src={fragrance.image_url}
+            unoptimized={!canOptimizeImage(fragrance.image_url)}
             alt={`${fragrance.brand} ${fragrance.name}`}
             fill
             sizes="64px"

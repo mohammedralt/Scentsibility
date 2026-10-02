@@ -16,12 +16,16 @@ interface PriceAlertParams {
   fragrancePageUrl?: string | null;
   threshold: number | null;
   previousBest: number | null;
+  /** Lets the email's unsubscribe link turn off this alert */
+  watchlistItemId?: string;
 }
 
 interface Email {
   to: string;
   subject: string;
   html: string;
+  /** One-click unsubscribe URL (RFC 8058), shown by Gmail and Apple Mail */
+  unsubscribeUrl?: string;
 }
 
 export function emailConfigured(): boolean {
@@ -30,7 +34,11 @@ export function emailConfigured(): boolean {
 
 let gmail: nodemailer.Transporter | null = null;
 
-export async function sendEmail({ to, subject, html }: Email): Promise<void> {
+export async function sendEmail({ to, subject, html, unsubscribeUrl }: Email): Promise<void> {
+  const headers: Record<string, string> = unsubscribeUrl
+    ? { 'List-Unsubscribe': `<${unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' }
+    : {};
+
   const gmailUser = process.env.GMAIL_USER;
   const gmailPassword = process.env.GMAIL_APP_PASSWORD;
 
@@ -40,7 +48,7 @@ export async function sendEmail({ to, subject, html }: Email): Promise<void> {
       // App passwords are shown with spaces ("abcd efgh ijkl mnop"); Gmail wants them without
       auth: { user: gmailUser.trim(), pass: gmailPassword.replace(/\s+/g, '') },
     });
-    await gmail.sendMail({ from: `Scentsibility <${gmailUser.trim()}>`, to, subject, html });
+    await gmail.sendMail({ from: `Scentsibility <${gmailUser.trim()}>`, to, subject, html, headers });
     return;
   }
 
@@ -50,7 +58,7 @@ export async function sendEmail({ to, subject, html }: Email): Promise<void> {
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: process.env.EMAIL_FROM ?? 'onboarding@resend.dev', to: [to], subject, html }),
+    body: JSON.stringify({ from: process.env.EMAIL_FROM ?? 'onboarding@resend.dev', to: [to], subject, html, headers }),
   });
   if (!response.ok) {
     throw new Error(`Resend API error ${response.status}: ${await response.text()}`);
@@ -65,6 +73,9 @@ const money = (n: number) => `$${n.toFixed(2)}`;
 export function renderPriceAlert(params: PriceAlertParams): Email {
   const name = escapeHtml(`${params.brand} ${params.fragranceName}`);
   const appUrl = process.env.APP_URL ?? 'https://scentsibility.vercel.app';
+  const unsubscribeUrl = params.watchlistItemId
+    ? `${appUrl}/unsubscribe?item=${params.watchlistItemId}`
+    : undefined;
   const subject = `New best deal: ${params.brand} ${params.fragranceName} just hit ${money(params.price)}`;
 
   const details = [
@@ -91,14 +102,17 @@ export function renderPriceAlert(params: PriceAlertParams): Email {
         </td></tr>
         <tr><td style="padding:20px 28px 26px">
           <p style="margin:0;font-size:12px;color:#7d766f">You're getting this because you're tracking this fragrance.
-          <a href="${appUrl}/dashboard" style="color:#a39c94">Manage alerts</a></p>
+          <a href="${appUrl}/dashboard" style="color:#a39c94">Manage alerts</a>
+          ${unsubscribeUrl ? `&nbsp;·&nbsp; <a href="${unsubscribeUrl}" style="color:#a39c94">Unsubscribe</a>` : ''}</p>
         </td></tr>
       </table>
     </td></tr>
   </table>
 </body></html>`;
 
-  return { to: params.toEmail, subject, html };
+  // One-click posts go to the API route; the visible link opens a confirm page
+  const oneClickUrl = unsubscribeUrl?.replace('/unsubscribe?', '/api/unsubscribe?');
+  return { to: params.toEmail, subject, html, unsubscribeUrl: oneClickUrl };
 }
 
 export async function sendPriceAlert(params: PriceAlertParams): Promise<void> {

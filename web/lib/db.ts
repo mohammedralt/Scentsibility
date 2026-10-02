@@ -18,7 +18,7 @@ function withBottleImage<T extends { id: string; image_url: string | null }>(f: 
 
 let pool: Pool | null = null;
 
-function getPool(): Pool {
+export function getPool(): Pool {
   if (!pool) {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
@@ -103,24 +103,38 @@ export async function getFeaturedFragrances(limit = 12): Promise<Fragrance[]> {
 
 // ─── Prices ───────────────────────────────────────────────────────────────────
 
-export async function getFragrancePrices(fragranceId: string): Promise<TrackedProduct[]> {
-  const { rows } = await getPool().query<TrackedProduct>(
-    `SELECT
+const PRICE_COLUMNS = `
        tp.id, tp.fragrance_id, tp.retailer_id,
        r.key AS retailer_key, r.name AS retailer_name,
        tp.product_url, tp.size_ml, tp.variant_label,
        (tp.product_url ILIKE '%tester%' OR tp.variant_label ILIKE '%tester%') AS is_tester,
        tp.last_price, tp.last_in_stock, tp.last_scraped_at,
-       r.currency
+       r.currency`;
+
+export async function getFragrancePrices(fragranceId: string): Promise<TrackedProduct[]> {
+  return (await getPricesForFragrances([fragranceId])).get(fragranceId) ?? [];
+}
+
+/** Priced listings for many fragrances in one query, keyed by fragrance id (cheapest first). */
+export async function getPricesForFragrances(fragranceIds: string[]): Promise<Map<string, TrackedProduct[]>> {
+  const byFragrance = new Map<string, TrackedProduct[]>();
+  if (fragranceIds.length === 0) return byFragrance;
+  const { rows } = await getPool().query<TrackedProduct>(
+    `SELECT ${PRICE_COLUMNS}
      FROM tracked_products tp
      JOIN retailers r ON r.id = tp.retailer_id
-     WHERE tp.fragrance_id = $1
+     WHERE tp.fragrance_id = ANY($1::uuid[])
        AND tp.last_price IS NOT NULL
        AND r.is_active = true
      ORDER BY tp.last_price ASC`,
-    [fragranceId]
+    [fragranceIds]
   );
-  return rows;
+  for (const row of rows) {
+    const list = byFragrance.get(row.fragrance_id);
+    if (list) list.push(row);
+    else byFragrance.set(row.fragrance_id, [row]);
+  }
+  return byFragrance;
 }
 
 export async function getPriceHistory(
@@ -165,7 +179,7 @@ export async function getUserWatchlist(userId: string): Promise<WatchlistItem[]>
        wi.id, wi.fragrance_id,
        f.name AS fragrance_name, f.brand AS fragrance_brand,
        f.image_url AS fragrance_image,
-       wi.alert_threshold, wi.created_at
+       wi.alert_threshold, wi.notify_email, wi.created_at
      FROM watchlist_items wi
      JOIN fragrances f ON f.id = wi.fragrance_id
      WHERE wi.user_id = $1
@@ -174,19 +188,18 @@ export async function getUserWatchlist(userId: string): Promise<WatchlistItem[]>
   );
 
   // Headline price is the cheapest full bottle, same as the fragrance page
-  return Promise.all(
-    rows.map(async (row) => {
-      const cheapest = cheapestBottle(await getFragrancePrices(row.fragrance_id));
-      return {
-        ...row,
-        fragrance_image: bottleImage(row.fragrance_id, row.fragrance_image),
-        alert_threshold: row.alert_threshold != null ? Number(row.alert_threshold) : null,
-        cheapest_price: cheapest?.last_price != null ? Number(cheapest.last_price) : null,
-        cheapest_retailer: cheapest?.retailer_name ?? null,
-        cheapest_currency: cheapest?.currency ?? null,
-      };
-    })
-  );
+  const prices = await getPricesForFragrances(rows.map((r) => r.fragrance_id));
+  return rows.map((row) => {
+    const cheapest = cheapestBottle(prices.get(row.fragrance_id) ?? []);
+    return {
+      ...row,
+      fragrance_image: bottleImage(row.fragrance_id, row.fragrance_image),
+      alert_threshold: row.alert_threshold != null ? Number(row.alert_threshold) : null,
+      cheapest_price: cheapest?.last_price != null ? Number(cheapest.last_price) : null,
+      cheapest_retailer: cheapest?.retailer_name ?? null,
+      cheapest_currency: cheapest?.currency ?? null,
+    };
+  });
 }
 
 export async function addToWatchlist(
@@ -198,7 +211,7 @@ export async function addToWatchlist(
     `INSERT INTO watchlist_items (user_id, fragrance_id, alert_threshold)
      VALUES ($1, $2, $3)
      ON CONFLICT (user_id, fragrance_id)
-     DO UPDATE SET alert_threshold = EXCLUDED.alert_threshold
+     DO UPDATE SET alert_threshold = EXCLUDED.alert_threshold, notify_email = true
      RETURNING *`,
     [userId, fragranceId, threshold]
   );
@@ -244,4 +257,45 @@ export async function createUser(email: string, passwordHash: string, displayNam
     [email, passwordHash, displayName]
   );
   return rows[0];
+}
+
+export async function getUserById(id: string) {
+  // Reset tokens are user input: a malformed id must not reach the uuid column
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const { rows } = await getPool().query(`SELECT * FROM users WHERE id = $1`, [id]);
+  return rows[0] ?? null;
+}
+
+export async function updatePassword(userId: string, passwordHash: string): Promise<void> {
+  await getPool().query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [passwordHash, userId]);
+}
+
+// ─── Unsubscribe ──────────────────────────────────────────────────────────────
+// Alert emails link to /unsubscribe?item=<watchlist item id>. The id is a random
+// UUID that only appears in that person's emails, so it works as the key.
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function getUnsubscribeItem(itemId: string) {
+  if (!UUID.test(itemId)) return null;
+  const { rows } = await getPool().query<{ fragrance_name: string; fragrance_brand: string; notify_email: boolean }>(
+    `SELECT f.name AS fragrance_name, f.brand AS fragrance_brand, wi.notify_email
+     FROM watchlist_items wi JOIN fragrances f ON f.id = wi.fragrance_id
+     WHERE wi.id = $1`,
+    [itemId]
+  );
+  return rows[0] ?? null;
+}
+
+/** Turns off alert emails for one watchlist item, or for every item its owner has. */
+export async function unsubscribe(itemId: string, scope: 'one' | 'all'): Promise<boolean> {
+  if (!UUID.test(itemId)) return false;
+  const { rowCount } = await getPool().query(
+    scope === 'all'
+      ? `UPDATE watchlist_items SET notify_email = false
+         WHERE user_id = (SELECT user_id FROM watchlist_items WHERE id = $1)`
+      : `UPDATE watchlist_items SET notify_email = false WHERE id = $1`,
+    [itemId]
+  );
+  return (rowCount ?? 0) > 0;
 }
