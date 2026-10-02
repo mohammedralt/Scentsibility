@@ -35,10 +35,11 @@ function pick(row: Row, keys: string[]): string | undefined {
 
 function normalizeGender(raw: string | undefined): 'male' | 'female' | 'unisex' | 'unknown' {
   if (!raw) return 'unknown';
-  const g = raw.toLowerCase();
-  const hasW = g.includes('women') || g.includes('female') || g === 'w' || g.includes('woman');
-  const hasM = g.includes('men') || g.includes('male') || g === 'm' || g.includes('man');
-  if (g.includes('unisex') || (hasW && hasM)) return 'unisex';
+  // Match whole words: "women" and "female" contain "men" and "male"
+  const words = raw.toLowerCase().split(/[^a-z]+/);
+  const hasW = words.some((w) => ['women', 'woman', 'female', 'her', 'w'].includes(w));
+  const hasM = words.some((w) => ['men', 'man', 'male', 'him', 'm'].includes(w));
+  if (words.includes('unisex') || (hasW && hasM)) return 'unisex';
   if (hasW) return 'female';
   if (hasM) return 'male';
   return 'unknown';
