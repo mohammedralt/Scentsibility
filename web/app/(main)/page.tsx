@@ -62,8 +62,8 @@ export default function HomePage() {
           </h1>
 
           <p className="text-lg text-gray-300 mb-10 max-w-xl mx-auto">
-            We compare prices across Jomashop, Olfactory Factory, Fragrance Nevaeh, Fragrance Lord,
-            and more — so you always find the best deal.
+            We check prices at Jomashop, Olfactory Factory, Fragrance Nevaeh, Fragrance Lord and more,
+            so you can always find the best deal on the scents you love.
           </p>
 
           {/* Search */}
