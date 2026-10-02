@@ -183,6 +183,18 @@ export async function pruneOldSnapshots(keepDays: number): Promise<number> {
   return rowCount ?? 0;
 }
 
+// The website counts sign-in attempts per IP address (rate_limits). The privacy
+// policy promises those are gone within about a day.
+export async function pruneRateLimits(): Promise<number> {
+  const { rowCount } = await getPool().query(
+    `DELETE FROM rate_limits WHERE window_start < NOW() - INTERVAL '1 day'`
+  ).catch((err) => {
+    if (err.code === '42P01') return { rowCount: 0 }; // table not created yet
+    throw err;
+  });
+  return rowCount ?? 0;
+}
+
 export async function getWatchersToNotify(fragranceId: string, newBestPrice: number) {
   // Find users watching this fragrance whose threshold the new best price clears
   // (no threshold = any new best deal qualifies), and who haven't already been

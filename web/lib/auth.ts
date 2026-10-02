@@ -1,8 +1,13 @@
-import NextAuth from 'next-auth';
+import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { getUserByEmail } from './db';
 import { z } from 'zod';
+import { rateLimit, clientIp } from './rate-limit';
+
+class RateLimited extends CredentialsSignin {
+  code = 'rate_limited';
+}
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -39,9 +44,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
+
+        // Slow down password guessing: per account, and per address across accounts
+        const allowed =
+          (await rateLimit(`login:email:${parsed.data.email}`, 10, 900)) &&
+          (await rateLimit(`login:ip:${clientIp(request.headers)}`, 30, 900));
+        if (!allowed) throw new RateLimited();
 
         const user = await getUserByEmail(parsed.data.email);
         if (!user) return null;

@@ -44,6 +44,14 @@ The BullMQ scheduler and worker (`npm run scheduler` / `npm run worker`) still w
 
 Sign up creates a user with a bcrypt hashed password. Login uses NextAuth with JWT sessions. Signing up logs you straight in and returns you to the page you came from. Once you are logged in, the "Track price" button on any fragrance adds it to your watchlist, and "Set Price Alert" lets you add an optional target price. The refresh job compares the cheapest full-bottle price across all of a fragrance's tracked retailers (samples, decants and anything under 30ml don't count) before and after every scrape, and fires an alert only when that scrape sets a new all time low (and clears your target, if you set one), capped at one email per fragrance per day. It sends through Resend and logs that it did so. Sending needs a real `RESEND_API_KEY`; reaching any inbox other than your own Resend account address needs a verified sender domain.
 
+### Password resets and unsubscribing
+
+"Forgot password?" on the sign-in page emails a reset link that works for an hour and only once. The website sends it, so the Vercel project needs the same email settings as the price alerts (`GMAIL_USER` + `GMAIL_APP_PASSWORD`, or `RESEND_API_KEY`). Without them, no reset email goes out.
+
+Every price alert has an unsubscribe link, plus the one-click unsubscribe header Gmail and Apple Mail show at the top of the email. Saving a price alert on a fragrance turns its emails back on.
+
+Sign-up, sign-in and reset requests are rate limited per IP address and per email, counted in a small `rate_limits` table the site creates itself. The refresh job clears old counts.
+
 ### Bottle photos
 
 Every fragrance gets the same kind of photo: the real bottle, cut out of a retailer's product shot, standing on a dark marble table. `scraper/images/stage_bottles.py` gathers each fragrance's Shopify product photos, removes the background with [rembg](https://github.com/danielgatis/rembg), skips shots that are really the box (a solid rectangle with no neck or cap, or a bottle standing next to its box), and places the first good cut-out on the backdrop drawn by `scraper/images/backdrop.py`.
@@ -98,7 +106,7 @@ Web app:
 ```
 cd web
 npm install
-# create .env.local with DATABASE_URL, AUTH_SECRET, NEXTAUTH_URL
+# create .env.local with DATABASE_URL, AUTH_SECRET, NEXTAUTH_URL (see .env.example)
 npm run dev                   # http://localhost:3000
 ```
 

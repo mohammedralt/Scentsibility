@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getUserByEmail, createUser } from '@/lib/db';
+import { rateLimit, clientIp } from '@/lib/rate-limit';
 
 const registerSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -10,6 +11,10 @@ const registerSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  if (!(await rateLimit(`register:ip:${clientIp(req.headers)}`, 5, 3600))) {
+    return NextResponse.json({ error: 'Too many sign-ups from this network. Try again in an hour.' }, { status: 429 });
+  }
+
   const body = await req.json().catch(() => null);
   const parsed = registerSchema.safeParse(body);
 

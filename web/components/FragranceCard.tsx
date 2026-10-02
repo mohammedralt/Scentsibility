@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { Fragrance } from '@/lib/types';
 import type { ListingSummary } from '@/lib/listings';
-import { formatPrice, cn, isStagedImage } from '@/lib/utils';
+import { formatPrice, cn, isStagedImage, canOptimizeImage } from '@/lib/utils';
 
 interface FragranceCardProps {
   fragrance: Fragrance;
@@ -28,6 +28,7 @@ export function FragranceCard({ fragrance, summary, className }: FragranceCardPr
         {fragrance.image_url ? (
           <Image
             src={fragrance.image_url}
+            unoptimized={!canOptimizeImage(fragrance.image_url)}
             alt={`${fragrance.brand} ${fragrance.name}`}
             fill
             className={cn(
