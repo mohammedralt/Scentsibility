@@ -38,9 +38,9 @@ export async function POST(req: NextRequest) {
 <html><body style="margin:0;padding:32px 16px;background:#0e0d0c;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#f2f0ed">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;background:#1c1a18;border:1px solid #2b2724;border-radius:16px">
     <tr><td style="padding:28px">
-      <p style="margin:0 0 20px;font-weight:700;font-size:18px;color:#2dd4bf">Scentsibility</p>
+      <p style="margin:0 0 20px;font-weight:700;font-size:18px;color:#e4c47f">Scentsibility</p>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.5">Someone asked to reset the password for this account. The link works for one hour.</p>
-      <a href="${link}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:10px">Choose a new password</a>
+      <a href="${link}" style="display:inline-block;background:#e4c47f;color:#0e0d0c;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:10px">Choose a new password</a>
       <p style="margin:20px 0 0;font-size:12px;color:#7d766f">If this wasn't you, ignore this email. Your password won't change.</p>
     </td></tr>
   </table>

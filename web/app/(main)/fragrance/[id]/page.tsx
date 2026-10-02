@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const fragrance = await getFragranceById(params.id);
   if (!fragrance) return { title: 'Fragrance not found' };
   return {
-    title: `${fragrance.brand} ${fragrance.name} — Price Comparison`,
+    title: `${fragrance.brand} ${fragrance.name} prices`,
     description: `Compare prices for ${fragrance.brand} ${fragrance.name} across multiple retailers.`,
     alternates: { canonical: `/fragrance/${fragrance.id}` },
   };
@@ -99,8 +99,8 @@ export default async function FragrancePage({ params }: PageProps) {
 
         {/* Meta */}
         <div className="flex-1">
-          <p className="text-sm text-brand-400 font-medium uppercase tracking-wide mb-0.5">{fragrance.brand}</p>
-          <h1 className="text-2xl font-bold text-gray-50 mb-2">{fragrance.name}</h1>
+          <p className="text-xs text-brand-300 font-semibold uppercase tracking-[0.18em] mb-1">{fragrance.brand}</p>
+          <h1 className="font-serif text-4xl sm:text-5xl font-normal leading-none text-gray-50 mb-3">{fragrance.name}</h1>
 
           <div className="flex flex-wrap items-center gap-2 mb-4">
             {fragrance.fragrance_type && (
@@ -159,7 +159,7 @@ export default async function FragrancePage({ params }: PageProps) {
                 <p className="text-sm text-gray-400 mt-0.5">
                   None of the {new Set(prices.map((p) => p.retailer_key)).size} stores we track have a full bottle in stock
                   {summary.cheapest?.last_price != null && (
-                    <> — last seen from {formatPrice(Number(summary.cheapest.last_price), summary.cheapest.currency)}</>
+                    <>, last seen at {formatPrice(Number(summary.cheapest.last_price), summary.cheapest.currency)}</>
                   )}
                   . Track it to get an email when a new low price shows up.
                 </p>
@@ -238,10 +238,10 @@ function ListingRow({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-semibold text-gray-50 text-sm">{p.retailer_name}</span>
           {bestValue && (
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-brand-600 text-white">BEST VALUE</span>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-300 text-gray-950">Best value</span>
           )}
           {bestPerMl && (
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-blue-500 text-white">BEST PER ML</span>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold border border-brand-700 text-brand-200">Best per ml</span>
           )}
           {soldOut && (
             <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">Sold out</span>
@@ -263,7 +263,11 @@ function ListingRow({
         rel="noopener noreferrer"
         aria-label={`View at ${p.retailer_name}`}
         className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-          soldOut ? 'border border-gray-700 text-gray-300 hover:bg-gray-800' : 'bg-brand-600 hover:bg-brand-700 text-white'
+          soldOut
+            ? 'border border-gray-700 text-gray-300 hover:bg-gray-800'
+            : bestValue
+              ? 'bg-brand-300 hover:bg-brand-200 text-gray-950'
+              : 'border border-brand-800 text-brand-200 hover:bg-brand-950/60'
         }`}
       >
         {soldOut ? 'View' : <>View<span className="hidden sm:inline"> deal</span></>}

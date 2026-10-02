@@ -18,8 +18,8 @@ export function FragranceCard({ fragrance, summary, className }: FragranceCardPr
     <Link
       href={`/fragrance/${fragrance.id}`}
       className={cn(
-        'group flex flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900',
-        'hover:border-gray-600 transition-colors duration-200',
+        'group flex flex-col overflow-hidden rounded-2xl border border-gray-900 bg-gray-900/60',
+        'hover:border-brand-800 transition-colors duration-300',
         className
       )}
     >
@@ -54,18 +54,18 @@ export function FragranceCard({ fragrance, summary, className }: FragranceCardPr
         <p className="truncate text-[11px] font-medium uppercase tracking-wider text-gray-400">
           {fragrance.brand}
         </p>
-        <h3 className="mt-0.5 line-clamp-1 text-[15px] font-semibold leading-snug text-gray-50">
+        <h3 className="mt-0.5 line-clamp-1 font-serif text-[21px] leading-tight text-gray-50">
           {fragrance.name}
         </h3>
 
         {cheapest?.last_price != null ? (
           <div className="mt-auto pt-2">
             <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-              <p className={cn('text-lg font-bold', soldOut ? 'text-gray-500 line-through' : 'text-gray-50')}>
+              <p className={cn('text-base font-semibold', soldOut ? 'text-gray-500 line-through' : 'text-gray-50')}>
                 {formatPrice(Number(cheapest.last_price), cheapest.currency)}
               </p>
               {goodDeal && (
-                <span className="whitespace-nowrap rounded-full border border-brand-700 bg-brand-950/60 px-2.5 py-0.5 text-[11px] font-medium text-brand-300">
+                <span className="whitespace-nowrap rounded-full bg-brand-300/10 px-2.5 py-0.5 text-[11px] font-semibold text-brand-200">
                   Good Deal
                 </span>
               )}

@@ -27,10 +27,10 @@ export function Header({ session }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-gray-800 bg-gray-950/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-gray-900 bg-gray-950/85 backdrop-blur-md">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4">
         {/* Logo */}
-        <Link href="/" className="flex-shrink-0 font-bold text-lg text-brand-400 tracking-tight">
+        <Link href="/" className="flex-shrink-0 font-serif text-[26px] leading-none text-gray-50">
           Scentsibility
         </Link>
 
@@ -44,7 +44,7 @@ export function Header({ session }: HeaderProps) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search fragrances, brands…"
               className={cn(
-                'input pl-9 pr-4 py-2 h-9 text-sm',
+                'input pl-9 pr-4 py-2 h-9 text-sm rounded-full bg-gray-900/70',
                 'focus:ring-1'
               )}
             />

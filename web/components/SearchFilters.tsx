@@ -64,8 +64,8 @@ function FilterSelect({
         onChange={(e) => onChange(e.target.value)}
         className={`appearance-none cursor-pointer pl-3.5 pr-8 py-1.5 rounded-full text-sm border transition-colors focus:outline-none focus:ring-2 focus:ring-brand-500 ${
           active
-            ? 'bg-brand-600 text-white border-brand-600'
-            : 'bg-gray-900 text-gray-200 border-gray-700 hover:border-brand-400'
+            ? 'bg-brand-300 text-gray-950 border-brand-300'
+            : 'bg-gray-900 text-gray-200 border-gray-700 hover:border-brand-500'
         }`}
       >
         {options.map((o) => (
@@ -120,8 +120,8 @@ export function SearchFilters({ stores }: SearchFiltersProps) {
         onClick={() => setParam('inStock', inStock ? '' : 'true')}
         className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm border transition-colors ${
           inStock
-            ? 'bg-brand-600 text-white border-brand-600'
-            : 'bg-gray-900 text-gray-200 border-gray-700 hover:border-brand-400'
+            ? 'bg-brand-300 text-gray-950 border-brand-300'
+            : 'bg-gray-900 text-gray-200 border-gray-700 hover:border-brand-500'
         }`}
       >
         {inStock && <Check className="h-3.5 w-3.5" />}

@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 
 // Preview image shown when a Scentsibility link is shared (iMessage, X, Slack...)
 export const runtime = 'edge';
-export const alt = 'Scentsibility — compare fragrance prices';
+export const alt = 'Scentsibility: compare fragrance prices';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -22,7 +22,7 @@ export default function OpengraphImage() {
           fontFamily: 'sans-serif',
         }}
       >
-        <div style={{ fontSize: 40, fontWeight: 700, color: '#2dd4bf' }}>Scentsibility</div>
+        <div style={{ fontSize: 40, fontWeight: 700, color: '#e4c47f' }}>Scentsibility</div>
         <div style={{ fontSize: 76, fontWeight: 700, marginTop: 24, lineHeight: 1.1 }}>
           Never overpay for your favourite fragrance
         </div>

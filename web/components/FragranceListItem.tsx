@@ -48,7 +48,7 @@ export function FragranceListItem({ fragrance, cheapest, soldOut = false, storeC
       {/* Name + meta */}
       <div className="flex-1 min-w-0">
         <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">{fragrance.brand}</p>
-        <p className="font-semibold text-gray-50 truncate">{fragrance.name}</p>
+        <p className="font-serif text-xl leading-tight text-gray-50 truncate">{fragrance.name}</p>
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           {(cheapest?.variant_label || cheapest?.size_ml) && (
             <span className="text-xs text-gray-500">

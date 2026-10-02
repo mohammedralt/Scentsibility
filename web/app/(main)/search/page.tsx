@@ -22,7 +22,7 @@ interface SearchPageProps {
 
 export function generateMetadata({ searchParams }: SearchPageProps): Metadata {
   const q = searchParams.q ?? '';
-  return { title: q ? `"${q}" — Fragrance prices` : 'Browse fragrances' };
+  return { title: q ? `"${q}" fragrance prices` : 'Browse fragrances' };
 }
 
 /** Does a listing's size fall into the chosen bucket? */
@@ -178,9 +178,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold mb-1">Search Fragrances</h1>
-        <p className="text-gray-500 text-sm mb-6">
-          Browse our catalog of niche and designer fragrances from top houses. Search, sort and filter to find the best price.
+        <h1 className="font-serif font-normal text-5xl text-gray-50 mb-2">Find your bottle</h1>
+        <p className="text-gray-400 mb-6">
+          Every fragrance we track, with the cheapest bottle up front. Narrow it down by store, size or season.
         </p>
 
         {/* Search bar */}
@@ -195,7 +195,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-700 bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
           </div>
-          <button type="submit" className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium rounded-lg transition-colors">
+          <button type="submit" className="px-5 py-2.5 bg-brand-300 hover:bg-brand-200 text-gray-950 text-sm font-medium rounded-lg transition-colors">
             Search
           </button>
         </form>
