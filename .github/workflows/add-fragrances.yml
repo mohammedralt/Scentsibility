@@ -1,0 +1,52 @@
+name: Add fragrances
+
+# Adds the fragrances listed in a CSV (see scraper/data/) to the catalog, then
+# searches every retailer for their prices so they show up on the site.
+# Fragrances already in the catalog are updated, not duplicated.
+
+on:
+  workflow_dispatch:
+    inputs:
+      csv:
+        description: 'CSV file under scraper/'
+        type: string
+        default: 'data/new-brands-2026-10.csv'
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: scraper
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      NODE_ENV: production
+      LOG_LEVEL: info
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: scraper/package-lock.json
+
+      - run: npm ci --include=dev
+
+      - name: Install Chromium (for Jomashop)
+        run: npx playwright install --with-deps chromium
+
+      - name: Import fragrances
+        env:
+          CSV: ${{ inputs.csv }}
+        run: npm run import -- "$CSV"
+
+      - name: Find their prices
+        env:
+          CSV: ${{ inputs.csv }}
+        run: |
+          # Only the brands in this CSV, and only fragrances with no price yet
+          BRANDS=$(node -e "const {parse}=require('csv-parse/sync');const r=parse(require('fs').readFileSync(process.argv[1]),{columns:true});console.log([...new Set(r.map(x=>x.brand))].join(','))" "$CSV")
+          echo "Brands: $BRANDS"
+          npm run populate -- --missing --brand "$BRANDS"
