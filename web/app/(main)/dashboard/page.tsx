@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 import { Bell, BellOff, ExternalLink, TrendingDown, Plus } from 'lucide-react';
 import { auth } from '@/lib/auth';
 import { getUserWatchlist } from '@/lib/db';
-import { formatPrice, formatDate, isStagedImage } from '@/lib/utils';
+import { formatPrice, formatDate, isStagedImage, canOptimizeImage } from '@/lib/utils';
 import { RemoveWatchlistButton } from '@/components/RemoveWatchlistButton';
 
 export const metadata: Metadata = { title: 'My Watchlist' };
@@ -52,6 +52,7 @@ export default async function DashboardPage() {
                 {item.fragrance_image ? (
                   <Image
                     src={item.fragrance_image}
+                    unoptimized={!canOptimizeImage(item.fragrance_image)}
                     alt={item.fragrance_name}
                     fill
                     sizes="64px"
@@ -85,6 +86,12 @@ export default async function DashboardPage() {
                     <span className="text-xs text-gray-400 italic">No prices yet</span>
                   )}
 
+                  {!item.notify_email && (
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-400">
+                      <BellOff className="h-3 w-3" />
+                      Emails off
+                    </span>
+                  )}
                   {item.alert_threshold && (
                     <span className="badge badge-purple text-xs">
                       Alert at {formatPrice(item.alert_threshold, 'USD')}

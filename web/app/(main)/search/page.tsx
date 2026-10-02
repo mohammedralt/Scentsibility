@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { Search } from 'lucide-react';
-import { searchFragrances, getFragrancePrices, countFragrances, getRetailers } from '@/lib/db';
+import { searchFragrances, getPricesForFragrances, countFragrances, getRetailers } from '@/lib/db';
 import { FragranceListItem } from '@/components/FragranceListItem';
 import { SearchFilters } from '@/components/SearchFilters';
 import type { TrackedProduct } from '@/lib/types';
@@ -85,19 +85,18 @@ async function Results({ filters }: { filters: Filters }) {
     fragrances = fragrances.filter((f) => seasonMatches(f, filters.season));
   }
 
-  const withData = await Promise.all(
-    fragrances.map(async (f) => {
-      const allPrices = await getFragrancePrices(f.id);
-      // Listings matching the active store / size / stock filters
-      let relevant = allPrices;
-      if (filters.store) relevant = relevant.filter((p) => p.retailer_key === filters.store);
-      if (filters.size) relevant = relevant.filter((p) => sizeMatches(p, filters.size));
-      if (filters.inStock) relevant = relevant.filter((p) => p.last_in_stock);
-      if (filters.tester === 'hide') relevant = relevant.filter((p) => !p.is_tester);
-      else if (filters.tester === 'only') relevant = relevant.filter((p) => p.is_tester);
-      return { fragrance: f, allPrices, relevant };
-    })
-  );
+  const prices = await getPricesForFragrances(fragrances.map((f) => f.id));
+  const withData = fragrances.map((f) => {
+    const allPrices = prices.get(f.id) ?? [];
+    // Listings matching the active store / size / stock filters
+    let relevant = allPrices;
+    if (filters.store) relevant = relevant.filter((p) => p.retailer_key === filters.store);
+    if (filters.size) relevant = relevant.filter((p) => sizeMatches(p, filters.size));
+    if (filters.inStock) relevant = relevant.filter((p) => p.last_in_stock);
+    if (filters.tester === 'hide') relevant = relevant.filter((p) => !p.is_tester);
+    else if (filters.tester === 'only') relevant = relevant.filter((p) => p.is_tester);
+    return { fragrance: f, allPrices, relevant };
+  });
 
   // Keep only fragrances that still have a matching listing
   let rows = withData

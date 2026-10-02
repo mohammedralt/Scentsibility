@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { Currency } from './types';
+import { IMAGE_HOSTS } from './image-hosts';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -47,4 +48,18 @@ export function safeCallbackUrl(value: string | null, fallback = '/dashboard'): 
 // Bottle photos we've composited onto the shared backdrop (see scraper/src/images)
 export function isStagedImage(url: string | null | undefined): boolean {
   return !!url && url.startsWith('/bottles/');
+}
+
+/**
+ * Whether next/image may resize this image. Local files and the hosts in
+ * image-hosts.js can be; anything else is shown as-is (pass `unoptimized`).
+ */
+export function canOptimizeImage(src: string): boolean {
+  if (src.startsWith('/') && !src.startsWith('//')) return true;
+  try {
+    const { protocol, hostname } = new URL(src);
+    return protocol === 'https:' && IMAGE_HOSTS.some((h: string) => hostname === h || hostname.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
 }

@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { Search, TrendingDown, Bell, RefreshCw } from 'lucide-react';
-import { getFeaturedFragrances, getFragrancePrices } from '@/lib/db';
+import { getFeaturedFragrances, getPricesForFragrances } from '@/lib/db';
 import { FragranceCard } from '@/components/FragranceCard';
 import { summarizeListings, type ListingSummary } from '@/lib/listings';
 
@@ -10,12 +10,8 @@ async function FeaturedGrid() {
 
   try {
     const fragrances = await getFeaturedFragrances(15);
-    withPrices = await Promise.all(
-      fragrances.map(async (f) => {
-        const prices = await getFragrancePrices(f.id);
-        return { fragrance: f, summary: summarizeListings(prices) };
-      })
-    );
+    const prices = await getPricesForFragrances(fragrances.map((f) => f.id));
+    withPrices = fragrances.map((f) => ({ fragrance: f, summary: summarizeListings(prices.get(f.id) ?? []) }));
   } catch {
     return (
       <div className="text-center py-16 text-gray-400">

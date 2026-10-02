@@ -28,7 +28,9 @@ export default function LoginPage() {
         redirect: false,
       });
 
-      if (result?.error) {
+      if (result?.code === 'rate_limited') {
+        setError('Too many sign-in attempts. Try again in 15 minutes.');
+      } else if (result?.error) {
         setError('Invalid email or password.');
       } else {
         router.push(callbackUrl);
@@ -49,6 +51,11 @@ export default function LoginPage() {
           {searchParams.get('registered') && !error && (
             <div className="px-3 py-2 rounded-lg bg-green-950/30 text-green-400 text-sm border border-green-800">
               Account created. Sign in to continue.
+            </div>
+          )}
+          {searchParams.get('reset') && !error && (
+            <div className="px-3 py-2 rounded-lg bg-green-950/30 text-green-400 text-sm border border-green-800">
+              Password changed. Sign in with your new password.
             </div>
           )}
           {error && (
@@ -72,7 +79,12 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-sm font-medium">Password</label>
+            <div className="flex items-baseline justify-between">
+              <label htmlFor="password" className="text-sm font-medium">Password</label>
+              <Link href="/forgot-password" className="text-xs text-gray-400 hover:text-brand-400">
+                Forgot password?
+              </Link>
+            </div>
             <input
               id="password"
               type="password"

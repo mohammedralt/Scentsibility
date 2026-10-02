@@ -16,7 +16,7 @@
  *   ts-node src/refresh-prices.ts --keep-days 90           # delete price history older than this (default 90)
  */
 import 'dotenv/config';
-import { getPool, pruneOldSnapshots } from './db/client';
+import { getPool, pruneOldSnapshots, pruneRateLimits } from './db/client';
 import { getScraper, getRetailerKeys } from './retailers/registry';
 import { recordPriceAndAlert } from './notifications/alerts';
 import logger from './logger';
@@ -141,8 +141,9 @@ async function main() {
   try {
     const pruned = await pruneOldSnapshots(keepDays);
     console.log(`✓ Deleted ${pruned} price snapshots older than ${keepDays} days\n`);
+    await pruneRateLimits();
   } catch (err) {
-    logger.error({ err }, 'Pruning old snapshots failed');
+    logger.error({ err }, 'Pruning old data failed');
   }
 
   await getPool().end();
