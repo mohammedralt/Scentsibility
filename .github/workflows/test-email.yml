@@ -1,0 +1,38 @@
+name: Test email
+
+# Sends a sample price alert to check the Gmail (or Resend) secrets work.
+# Separate from "Refresh prices" so it doesn't wait behind a running refresh.
+
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: 'Send the sample alert to this address'
+        type: string
+        required: true
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scraper
+    env:
+      GMAIL_USER: ${{ secrets.GMAIL_USER }}
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      APP_URL: https://scentsibility.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: scraper/package-lock.json
+      - run: npm ci --include=dev
+      - name: Send test email
+        env:
+          TO: ${{ inputs.to }}
+        run: npm run test-email -- "$TO"
