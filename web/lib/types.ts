@@ -38,6 +38,8 @@ export interface TrackedProduct {
   last_in_stock: boolean | null;
   last_scraped_at: string | null;
   currency: Currency;
+  /** NULL for the fragrance itself; otherwise what it really is, e.g. "Body lotion" */
+  product_type: string | null;
 }
 
 export interface PriceSnapshot {

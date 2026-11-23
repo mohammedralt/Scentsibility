@@ -7,6 +7,7 @@ import { ExternalLink, Clock } from 'lucide-react';
 import {
   getFragranceById,
   getFragrancePrices,
+  getOtherProducts,
   getAllPriceHistoryForFragrance,
   getWatchlistItem,
 } from '@/lib/db';
@@ -14,7 +15,7 @@ import { auth } from '@/lib/auth';
 import { PriceHistoryChart } from '@/components/PriceHistoryChart';
 import { WatchlistButton } from '@/components/WatchlistButton';
 import { formatPrice, timeAgo, formatSize, isStagedImage, canOptimizeImage } from '@/lib/utils';
-import { rankListings, summarizeListings, isAvailable, type ListingKind } from '@/lib/listings';
+import { rankListings, summarizeListings, isAvailable, unavailableReason, type ListingKind } from '@/lib/listings';
 import type { TrackedProduct } from '@/lib/types';
 
 interface PageProps {
@@ -32,9 +33,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function FragrancePage({ params }: PageProps) {
-  const [fragrance, prices, session] = await Promise.all([
+  const [fragrance, prices, otherProducts, session] = await Promise.all([
     getFragranceById(params.id),
     getFragrancePrices(params.id),
+    getOtherProducts(params.id),
     auth(),
   ]);
 
@@ -186,7 +188,7 @@ export default async function FragrancePage({ params }: PageProps) {
                 <summary className="cursor-pointer list-none text-sm text-gray-400 hover:text-gray-200 select-none">
                   <span className="group-open:hidden">Show</span>
                   <span className="hidden group-open:inline">Hide</span>
-                  {' '}{soldOutListings.length} sold-out {soldOutListings.length === 1 ? 'listing' : 'listings'}
+                  {' '}{soldOutListings.length} sold-out or unconfirmed {soldOutListings.length === 1 ? 'listing' : 'listings'}
                 </summary>
                 <div className="flex flex-col gap-2 mt-3 opacity-60">
                   {soldOutListings.map(({ listing: p, kind }) => (
@@ -198,6 +200,21 @@ export default async function FragrancePage({ params }: PageProps) {
           </>
         )}
       </section>
+
+      {/* Same name, different product: body lotions, hair mists, gift sets... */}
+      {otherProducts.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Other products with this name</h2>
+          <p className="mt-1 mb-3 text-sm text-gray-400">
+            These aren&apos;t the {fragrance.fragrance_type ?? 'fragrance'} itself, so they&apos;re left out of the prices above.
+          </p>
+          <div className="flex flex-col gap-2">
+            {otherProducts.map((p) => (
+              <ListingRow key={p.id} listing={p} kind="unknown" productType={p.product_type} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Price history */}
       {history.length > 0 && (
@@ -217,16 +234,21 @@ function ListingRow({
   kind,
   bestValue = false,
   bestPerMl = false,
+  productType = null,
 }: {
   listing: TrackedProduct;
   kind: ListingKind;
   bestValue?: boolean;
   bestPerMl?: boolean;
+  /** Set when the listing isn't the perfume, e.g. "Body lotion" */
+  productType?: string | null;
 }) {
   const pricePml = p.last_price && p.size_ml ? (p.last_price / p.size_ml).toFixed(2) : null;
   const sizeText = p.variant_label
     ?? (p.size_ml ? formatSize(p.size_ml) : kind === 'sample' ? 'Sample / decant' : 'Size not listed');
-  const soldOut = !isAvailable(p);
+  // Sold out, or not seen in stock lately: show why, and no link to the store
+  const notBuyable = unavailableReason(p);
+  const soldOut = notBuyable !== null;
 
   return (
     <div
@@ -243,8 +265,10 @@ function ListingRow({
           {bestPerMl && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold border border-brand-700 text-brand-200">Best per ml</span>
           )}
-          {soldOut && (
-            <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-800 text-gray-400">Sold out</span>
+          {productType && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-950/70 text-amber-200 border border-amber-800">
+              {productType}
+            </span>
           )}
         </div>
         <p className="text-xs text-gray-400 mt-0.5">{sizeText}</p>
@@ -257,22 +281,26 @@ function ListingRow({
         {pricePml && <p className="text-xs text-gray-400">${pricePml}/ml</p>}
       </div>
 
-      <a
-        href={p.product_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={`View at ${p.retailer_name}`}
-        className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-          soldOut
-            ? 'border border-gray-700 text-gray-300 hover:bg-gray-800'
-            : bestValue
+      {soldOut ? (
+        <span className="flex-shrink-0 w-[88px] sm:w-[108px] text-center rounded-lg border border-gray-800 px-2 py-2 text-xs font-medium text-gray-500">
+          {notBuyable}
+        </span>
+      ) : (
+        <a
+          href={p.product_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`View at ${p.retailer_name}`}
+          className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            bestValue
               ? 'bg-brand-300 hover:bg-brand-200 text-gray-950'
               : 'border border-brand-800 text-brand-200 hover:bg-brand-950/60'
-        }`}
-      >
-        {soldOut ? 'View' : <>View<span className="hidden sm:inline"> deal</span></>}
-        <ExternalLink className="h-3.5 w-3.5" />
-      </a>
+          }`}
+        >
+          View<span className="hidden sm:inline"> deal</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      )}
     </div>
   );
 }

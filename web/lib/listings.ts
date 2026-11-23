@@ -71,8 +71,23 @@ export function bottlesOnly(listings: TrackedProduct[]): TrackedProduct[] {
   return bottles.length > 0 ? bottles : listings;
 }
 
-// Never-scraped listings (null) count as available; only an explicit false is sold out
-export const isAvailable = (p: TrackedProduct) => p.last_in_stock !== false;
+// Prices refresh every 12 hours. A listing we haven't managed to check for longer
+// than this may be gone, so we stop offering it until a refresh confirms it.
+const STALE_AFTER_HOURS = 48;
+
+export function isStale(p: TrackedProduct): boolean {
+  if (!p.last_scraped_at) return true;
+  return Date.now() - new Date(p.last_scraped_at).getTime() > STALE_AFTER_HOURS * 3600_000;
+}
+
+/** Only a listing the store said was in stock, on a recent check, can be bought. */
+export const isAvailable = (p: TrackedProduct) => p.last_in_stock === true && !isStale(p);
+
+/** Why a listing can't be bought right now, or null if it can. */
+export function unavailableReason(p: TrackedProduct): string | null {
+  if (isAvailable(p)) return null;
+  return p.last_in_stock === false && !isStale(p) ? 'Sold out' : 'Stock unknown';
+}
 
 export interface ListingSummary {
   /** Cheapest in-stock full bottle, or the cheapest last-seen bottle when sold out */

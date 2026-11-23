@@ -109,22 +109,37 @@ const PRICE_COLUMNS = `
        tp.product_url, tp.size_ml, tp.variant_label,
        (tp.product_url ILIKE '%tester%' OR tp.variant_label ILIKE '%tester%') AS is_tester,
        tp.last_price, tp.last_in_stock, tp.last_scraped_at,
-       r.currency`;
+       r.currency, tp.product_type`;
+
+// The scraper adds tracked_products.product_type too; make sure it exists before
+// the first query uses it, in case this deploy goes out first.
+let productTypeReady: Promise<unknown> | null = null;
+function ensureProductType(): Promise<unknown> {
+  productTypeReady ??= getPool()
+    .query(`ALTER TABLE tracked_products ADD COLUMN IF NOT EXISTS product_type TEXT`)
+    .catch((err) => { productTypeReady = null; throw err; });
+  return productTypeReady;
+}
 
 export async function getFragrancePrices(fragranceId: string): Promise<TrackedProduct[]> {
   return (await getPricesForFragrances([fragranceId])).get(fragranceId) ?? [];
 }
 
-/** Priced listings for many fragrances in one query, keyed by fragrance id (cheapest first). */
+/**
+ * Priced listings of the fragrance itself (no body lotions, hair mists...) for
+ * many fragrances in one query, keyed by fragrance id (cheapest first).
+ */
 export async function getPricesForFragrances(fragranceIds: string[]): Promise<Map<string, TrackedProduct[]>> {
   const byFragrance = new Map<string, TrackedProduct[]>();
   if (fragranceIds.length === 0) return byFragrance;
+  await ensureProductType();
   const { rows } = await getPool().query<TrackedProduct>(
     `SELECT ${PRICE_COLUMNS}
      FROM tracked_products tp
      JOIN retailers r ON r.id = tp.retailer_id
      WHERE tp.fragrance_id = ANY($1::uuid[])
        AND tp.last_price IS NOT NULL
+       AND tp.product_type IS NULL
        AND r.is_active = true
      ORDER BY tp.last_price ASC`,
     [fragranceIds]
@@ -135,6 +150,23 @@ export async function getPricesForFragrances(fragranceIds: string[]): Promise<Ma
     else byFragrance.set(row.fragrance_id, [row]);
   }
   return byFragrance;
+}
+
+/** Listings that carry the fragrance's name but aren't the perfume: body lotions, hair mists, gift sets... */
+export async function getOtherProducts(fragranceId: string): Promise<TrackedProduct[]> {
+  await ensureProductType();
+  const { rows } = await getPool().query<TrackedProduct>(
+    `SELECT ${PRICE_COLUMNS}
+     FROM tracked_products tp
+     JOIN retailers r ON r.id = tp.retailer_id
+     WHERE tp.fragrance_id = $1
+       AND tp.last_price IS NOT NULL
+       AND tp.product_type IS NOT NULL
+       AND r.is_active = true
+     ORDER BY tp.product_type, tp.last_price ASC`,
+    [fragranceId]
+  );
+  return rows;
 }
 
 export async function getPriceHistory(

@@ -5,7 +5,7 @@ import { searchFragrances, getPricesForFragrances, countFragrances, getRetailers
 import { FragranceListItem } from '@/components/FragranceListItem';
 import { SearchFilters } from '@/components/SearchFilters';
 import type { TrackedProduct } from '@/lib/types';
-import { summarizeListings, bottlesOnly } from '@/lib/listings';
+import { summarizeListings, bottlesOnly, isAvailable } from '@/lib/listings';
 
 interface SearchPageProps {
   searchParams: {
@@ -92,7 +92,7 @@ async function Results({ filters }: { filters: Filters }) {
     let relevant = allPrices;
     if (filters.store) relevant = relevant.filter((p) => p.retailer_key === filters.store);
     if (filters.size) relevant = relevant.filter((p) => sizeMatches(p, filters.size));
-    if (filters.inStock) relevant = relevant.filter((p) => p.last_in_stock);
+    if (filters.inStock) relevant = relevant.filter(isAvailable);
     if (filters.tester === 'hide') relevant = relevant.filter((p) => !p.is_tester);
     else if (filters.tester === 'only') relevant = relevant.filter((p) => p.is_tester);
     return { fragrance: f, allPrices, relevant };
