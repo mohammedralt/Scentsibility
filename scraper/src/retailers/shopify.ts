@@ -56,6 +56,9 @@ function buildVariantLabel(variantTitle: string | undefined, productTitle: strin
   return null;
 }
 
+// How long to wait before each retry after a 429 response
+const RATE_LIMIT_RETRIES = [5_000, 20_000, 45_000];
+
 export class ShopifyScraper extends BaseScraper {
   private storePage: Page | null = null;
 
@@ -80,8 +83,20 @@ export class ShopifyScraper extends BaseScraper {
 
   private async getJson<T>(url: string): Promise<T> {
     if (!this.usesBrowser) {
-      const { data } = await axios.get<T>(url, { headers: HEADERS, timeout: 15_000 });
-      return data;
+      // Stores answer 429 "too many requests" now and then: wait and try again
+      // (honouring Retry-After) rather than counting the listing as failed
+      for (let attempt = 0; ; attempt++) {
+        try {
+          const { data } = await axios.get<T>(url, { headers: HEADERS, timeout: 15_000 });
+          return data;
+        } catch (err) {
+          const res = axios.isAxiosError(err) ? err.response : undefined;
+          if (res?.status !== 429 || attempt >= RATE_LIMIT_RETRIES.length) throw err;
+          const retryAfter = Number(res.headers['retry-after']);
+          const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 60) * 1000 : RATE_LIMIT_RETRIES[attempt];
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+      }
     }
     const page = await this.clearedPage();
     const res = await page.evaluate(async (u) => {
