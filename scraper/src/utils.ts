@@ -25,10 +25,17 @@ export function parseSize(text: string): ParsedSize {
   if (ozMatch) {
     result.oz = parseFloat(ozMatch[1]);
     // If we didn't get ml from the string, convert from oz
-    if (!result.ml) result.ml = Math.round(result.oz * 29.5735);
+    if (!result.ml) result.ml = ozToMl(result.oz);
   }
 
   return result;
+}
+
+// Bottles are sold in round ml sizes: 3.4 oz is a 100ml bottle, not 101ml
+const STANDARD_ML = [5, 7.5, 10, 15, 20, 30, 35, 40, 50, 60, 75, 80, 90, 100, 110, 120, 125, 150, 200, 250];
+export function ozToMl(oz: number): number {
+  const ml = oz * 29.5735;
+  return STANDARD_ML.find((s) => Math.abs(s - ml) <= Math.max(1.5, s * 0.03)) ?? Math.round(ml);
 }
 
 /**

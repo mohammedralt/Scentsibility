@@ -16,7 +16,7 @@
  *   ts-node src/refresh-prices.ts --keep-days 90           # delete price history older than this (default 90)
  */
 import 'dotenv/config';
-import { getPool, pruneOldSnapshots, pruneRateLimits, ensureProductTypeColumn, backfillProductTypes, setProductType } from './db/client';
+import { getPool, pruneOldSnapshots, pruneRateLimits, ensureProductTypeColumn, backfillProductTypes, setProductType, fillListingSize } from './db/client';
 import { classifyProductType } from './product-type';
 import { getScraper, getRetailerKeys } from './retailers/registry';
 import { recordPriceAndAlert } from './notifications/alerts';
@@ -36,6 +36,7 @@ interface RetailerStats {
   updated: number;
   failed: number;
   alerts: number;
+  sized: number;
 }
 
 function sleep(ms: number) {
@@ -43,7 +44,7 @@ function sleep(ms: number) {
 }
 
 async function refreshRetailer(retailerKey: string, listings: Listing[], deadline: number): Promise<RetailerStats> {
-  const stats: RetailerStats = { updated: 0, failed: 0, alerts: 0 };
+  const stats: RetailerStats = { updated: 0, failed: 0, alerts: 0, sized: 0 };
   const scraper = getScraper(retailerKey);
 
   // Browser-based scrapers (Jomashop, and Shopify stores behind Cloudflare) get
@@ -68,9 +69,15 @@ async function refreshRetailer(retailerKey: string, listings: Listing[], deadlin
         } else {
           // Label body lotions, hair mists etc. from the real product title
           await setProductType(listing.id, classifyProductType(`${product.name} ${listing.product_url}`, listing.fragrance_name));
-          const { alertsSent } = await recordPriceAndAlert(listing.id, listing.fragrance_id, retailerKey, product);
+          // Search results often lack the size; the product page has it
+          const sizing = await fillListingSize(listing.id, product.size_ml, product.variant_label, product.url);
+          // A duplicate of a listing we already track for that size was just removed
+          if (sizing !== 'duplicate') {
+            if (sizing === 'filled') stats.sized++;
+            const { alertsSent } = await recordPriceAndAlert(listing.id, listing.fragrance_id, retailerKey, product);
+            stats.alerts += alertsSent;
+          }
           stats.updated++;
-          stats.alerts += alertsSent;
         }
       } catch (err) {
         stats.failed++;
@@ -132,16 +139,16 @@ async function main() {
         return [key, await refreshRetailer(key, listings, deadline)] as const;
       } catch (err) {
         logger.error({ retailerKey: key, err }, 'Retailer refresh crashed');
-        return [key, { updated: 0, failed: listings.length, alerts: 0 }] as const;
+        return [key, { updated: 0, failed: listings.length, alerts: 0, sized: 0 }] as const;
       }
     })
   );
 
-  console.log('\nRetailer            updated  failed  alerts');
+  console.log('\nRetailer            updated  failed  alerts  sizes found');
   let updated = 0;
   let alerts = 0;
   for (const [key, s] of results) {
-    console.log(`${key.padEnd(20)}${String(s.updated).padStart(7)}${String(s.failed).padStart(8)}${String(s.alerts).padStart(8)}`);
+    console.log(`${key.padEnd(20)}${String(s.updated).padStart(7)}${String(s.failed).padStart(8)}${String(s.alerts).padStart(8)}${String(s.sized).padStart(13)}`);
     updated += s.updated;
     alerts += s.alerts;
   }

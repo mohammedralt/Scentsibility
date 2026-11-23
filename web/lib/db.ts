@@ -113,6 +113,26 @@ const PRICE_COLUMNS = `
 
 // The scraper adds tracked_products.product_type too; make sure it exists before
 // the first query uses it, in case this deploy goes out first.
+/**
+ * Until a refresh records it, a listing found without a size can still show one
+ * if the store's product address names it, e.g. ".../santal-33-edp-100ml".
+ */
+function withSizeFromUrl(p: TrackedProduct): TrackedProduct {
+  if (p.size_ml != null) return p;
+  const slug = decodeURIComponent(p.product_url.split('?')[0]).toLowerCase();
+  const ml = slug.match(/(?:^|[^\d.])(\d{1,3}(?:[.-]\d)?)[\s-]*ml(?![a-z])/);
+  const oz = slug.match(/(?:^|[^\d.])(\d(?:[.-]\d{1,2})?)[\s-]*(?:fl[\s-]*)?oz(?![a-z])/);
+  const size = ml ? parseFloat(ml[1].replace('-', '.')) : oz ? ozToMl(parseFloat(oz[1].replace('-', '.'))) : null;
+  return size && size >= 1 && size <= 1000 ? { ...p, size_ml: size } : p;
+}
+
+// Bottles are sold in round ml sizes: 3.4 oz is a 100ml bottle, not 101ml
+const STANDARD_ML = [5, 7.5, 10, 15, 20, 30, 35, 40, 50, 60, 75, 80, 90, 100, 110, 120, 125, 150, 200, 250];
+function ozToMl(oz: number): number {
+  const ml = oz * 29.5735;
+  return STANDARD_ML.find((s) => Math.abs(s - ml) <= Math.max(1.5, s * 0.03)) ?? Math.round(ml);
+}
+
 let productTypeReady: Promise<unknown> | null = null;
 function ensureProductType(): Promise<unknown> {
   productTypeReady ??= getPool()
@@ -144,7 +164,8 @@ export async function getPricesForFragrances(fragranceIds: string[]): Promise<Ma
      ORDER BY tp.last_price ASC`,
     [fragranceIds]
   );
-  for (const row of rows) {
+  for (const raw of rows) {
+    const row = withSizeFromUrl(raw);
     const list = byFragrance.get(row.fragrance_id);
     if (list) list.push(row);
     else byFragrance.set(row.fragrance_id, [row]);
@@ -166,7 +187,7 @@ export async function getOtherProducts(fragranceId: string): Promise<TrackedProd
      ORDER BY tp.product_type, tp.last_price ASC`,
     [fragranceId]
   );
-  return rows;
+  return rows.map(withSizeFromUrl);
 }
 
 export async function getPriceHistory(

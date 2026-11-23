@@ -77,6 +77,17 @@ export async function upsertTrackedProduct(
   sizeMl: number | null,
   variantLabel: string | null = null
 ): Promise<string> {
+  // Search results often don't say the size. NULL sizes never clash in the unique
+  // key, so reuse the listing for the same product page instead of adding a copy.
+  if (sizeMl == null) {
+    const { rows: existing } = await getPool().query<{ id: string }>(
+      `SELECT id FROM tracked_products
+       WHERE fragrance_id = $1 AND retailer_id = $2 AND split_part(product_url, '?', 1) = split_part($3, '?', 1)
+       ORDER BY size_ml IS NULL, last_scraped_at DESC NULLS LAST LIMIT 1`,
+      [fragranceId, retailerId, productUrl]
+    );
+    if (existing[0]) return existing[0].id;
+  }
   const { rows } = await getPool().query<{ id: string }>(
     `INSERT INTO tracked_products (fragrance_id, retailer_id, product_url, size_ml, variant_label)
      VALUES ($1, $2, $3, $4, $5)
@@ -185,6 +196,50 @@ export async function pruneOldSnapshots(keepDays: number): Promise<number> {
     [keepDays]
   );
   return rowCount ?? 0;
+}
+
+// ─── Sizes ────────────────────────────────────────────────────────────────────
+
+/**
+ * Saves the size a product page shows for a listing that was found without one.
+ * If the store already has a listing of that size for this fragrance, this one is
+ * a duplicate and is removed. Returns what happened.
+ */
+export async function fillListingSize(
+  trackedProductId: string,
+  sizeMl: number | null,
+  variantLabel: string | null,
+  productUrl: string
+): Promise<'filled' | 'duplicate' | 'unchanged'> {
+  if (sizeMl == null) {
+    if (variantLabel) {
+      await getPool().query(
+        `UPDATE tracked_products SET variant_label = $2 WHERE id = $1 AND variant_label IS NULL`,
+        [trackedProductId, variantLabel]
+      );
+    }
+    return 'unchanged';
+  }
+  const { rows } = await getPool().query<{ size_ml: number | null; clash: string | null }>(
+    `SELECT tp.size_ml,
+            (SELECT o.id FROM tracked_products o
+             WHERE o.fragrance_id = tp.fragrance_id AND o.retailer_id = tp.retailer_id
+               AND o.size_ml = $2 AND o.id <> tp.id LIMIT 1) AS clash
+     FROM tracked_products tp WHERE tp.id = $1`,
+    [trackedProductId, sizeMl]
+  );
+  const row = rows[0];
+  if (!row || row.size_ml != null) return 'unchanged';
+  if (row.clash) {
+    await getPool().query(`DELETE FROM tracked_products WHERE id = $1`, [trackedProductId]);
+    return 'duplicate';
+  }
+  // The product page names the exact variant, so keep its URL to price that size
+  await getPool().query(
+    `UPDATE tracked_products SET size_ml = $2, variant_label = COALESCE($3, variant_label), product_url = $4 WHERE id = $1`,
+    [trackedProductId, sizeMl, variantLabel, productUrl]
+  );
+  return 'filled';
 }
 
 // ─── Product types ────────────────────────────────────────────────────────────
