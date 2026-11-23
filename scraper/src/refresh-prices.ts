@@ -16,7 +16,8 @@
  *   ts-node src/refresh-prices.ts --keep-days 90           # delete price history older than this (default 90)
  */
 import 'dotenv/config';
-import { getPool, pruneOldSnapshots, pruneRateLimits } from './db/client';
+import { getPool, pruneOldSnapshots, pruneRateLimits, ensureProductTypeColumn, backfillProductTypes, setProductType } from './db/client';
+import { classifyProductType } from './product-type';
 import { getScraper, getRetailerKeys } from './retailers/registry';
 import { recordPriceAndAlert } from './notifications/alerts';
 import logger from './logger';
@@ -28,6 +29,7 @@ interface Listing {
   fragrance_id: string;
   product_url: string;
   retailer_key: string;
+  fragrance_name: string;
 }
 
 interface RetailerStats {
@@ -64,6 +66,8 @@ async function refreshRetailer(retailerKey: string, listings: Listing[], deadlin
         if (!product) {
           stats.failed++;
         } else {
+          // Label body lotions, hair mists etc. from the real product title
+          await setProductType(listing.id, classifyProductType(`${product.name} ${listing.product_url}`, listing.fragrance_name));
           const { alertsSent } = await recordPriceAndAlert(listing.id, listing.fragrance_id, retailerKey, product);
           stats.updated++;
           stats.alerts += alertsSent;
@@ -97,11 +101,16 @@ async function main() {
   const deadline = Date.now() + maxMinutes * 60_000;
   const keepDays = parseInt(flagValue('--keep-days') ?? '') || 90;
 
+  await ensureProductTypeColumn();
+  const labelled = await backfillProductTypes(classifyProductType);
+  logger.info({ labelled }, 'Labelled non-perfume listings from their URLs');
+
   const known = new Set(getRetailerKeys());
   const { rows } = await getPool().query<Listing>(
-    `SELECT tp.id, tp.fragrance_id, tp.product_url, r.key AS retailer_key
+    `SELECT tp.id, tp.fragrance_id, tp.product_url, r.key AS retailer_key, f.name AS fragrance_name
      FROM tracked_products tp
      JOIN retailers r ON r.id = tp.retailer_id
+     JOIN fragrances f ON f.id = tp.fragrance_id
      WHERE r.is_active = true
      ORDER BY tp.last_scraped_at ASC NULLS FIRST`
   );

@@ -158,6 +158,10 @@ export async function getFragranceBestPrice(fragranceId: string): Promise<number
               (COALESCE(variant_label, '') || ' ' || regexp_replace(product_url, '[-_/?=&.]', ' ', 'g')) ~* $2 AS sample_words
        FROM tracked_products
        WHERE fragrance_id = $1 AND last_price IS NOT NULL
+         -- Only a perfume you can actually buy right now counts as a deal: in stock
+         -- on a recent check (the website hides listings older than 48 hours too)
+         AND last_in_stock IS TRUE AND product_type IS NULL
+         AND last_scraped_at > NOW() - INTERVAL '48 hours'
      ),
      ref AS (
        SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY last_price) AS typical
@@ -181,6 +185,44 @@ export async function pruneOldSnapshots(keepDays: number): Promise<number> {
     [keepDays]
   );
   return rowCount ?? 0;
+}
+
+// ─── Product types ────────────────────────────────────────────────────────────
+// tracked_products.product_type labels listings that aren't the perfume itself
+// ("Body lotion", "Hair mist", ...). NULL means the fragrance. The website shows
+// the label and leaves these out of prices and deals.
+
+export async function ensureProductTypeColumn(): Promise<void> {
+  await getPool().query(`ALTER TABLE tracked_products ADD COLUMN IF NOT EXISTS product_type TEXT`);
+}
+
+export async function setProductType(trackedProductId: string, productType: string | null): Promise<void> {
+  await getPool().query(
+    `UPDATE tracked_products SET product_type = $1 WHERE id = $2 AND product_type IS DISTINCT FROM $1`,
+    [productType, trackedProductId]
+  );
+}
+
+/** Labels every listing from its URL and size label. Returns how many changed. */
+export async function backfillProductTypes(
+  classify: (text: string, fragranceName: string) => string | null
+): Promise<number> {
+  const { rows } = await getPool().query<{ id: string; text: string; name: string; product_type: string | null }>(
+    `SELECT tp.id, tp.product_url || ' ' || COALESCE(tp.variant_label, '') AS text, f.name, tp.product_type
+     FROM tracked_products tp JOIN fragrances f ON f.id = tp.fragrance_id`
+  );
+  const changed = rows
+    .map((r) => ({ id: r.id, type: classify(r.text, r.name), was: r.product_type }))
+    // Only add labels here: a label found from a scraped title is never cleared by the URL alone
+    .filter((r) => r.type !== null && r.type !== r.was);
+  if (changed.length > 0) {
+    await getPool().query(
+      `UPDATE tracked_products tp SET product_type = v.type
+       FROM unnest($1::uuid[], $2::text[]) AS v(id, type) WHERE tp.id = v.id`,
+      [changed.map((r) => r.id), changed.map((r) => r.type)]
+    );
+  }
+  return changed.length;
 }
 
 // The website counts sign-in attempts per IP address (rate_limits). The privacy

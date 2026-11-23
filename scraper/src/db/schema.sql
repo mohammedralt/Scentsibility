@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS tracked_products (
   product_url   TEXT NOT NULL,
   size_ml       INTEGER,
   variant_label TEXT,                  -- "100ml", "3.4 oz", "Sample", "Tester", etc.
+  product_type  TEXT,                  -- NULL = the fragrance; else "Body lotion", "Hair mist", ...
   last_price    NUMERIC(10, 2),
   last_in_stock BOOLEAN,
   last_scraped_at TIMESTAMPTZ,

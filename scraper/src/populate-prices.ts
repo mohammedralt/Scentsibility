@@ -13,6 +13,7 @@ import { getPool, getRetailerId, upsertTrackedProduct, recordPriceSnapshot } fro
 import { getScraper, getRetailerKeys } from './retailers/registry';
 import { ProductListing } from './types';
 import { phraseText as normalize, FLANKER_WORDS } from './utils';
+import { classifyProductType } from './product-type';
 import logger from './logger';
 
 const DELAY_MS = 800; // between requests — be polite
@@ -21,20 +22,13 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// Non-fragrance products that pollute search results (body care, home, etc.)
-const ACCESSORY_PATTERNS = [
-  'body wash', 'body lotion', 'body cream', 'body crème', 'shower gel', 'bath gel',
-  'hand cream', 'hand cleanser', 'hair perfume', 'hair mist', 'hair oil',
-  'shampoo', 'conditioner', 'deodorant', 'soap', 'candle', 'diffuser',
-  'lip balm', 'shave', 'aftershave', 'roll-on', 'rollerball reed',
-];
+
 
 // Returns true if the product title plausibly matches the fragrance name
 export function isRelevantResult(product: ProductListing, fragranceName: string, brand: string): boolean {
-  const title = product.name.toLowerCase();
-
-  // Reject non-fragrance accessories (body wash, candles, hair mist, etc.)
-  if (ACCESSORY_PATTERNS.some((p) => title.includes(p))) return false;
+  // Body lotions, hair mists, candles, gift sets etc. aren't the fragrance. Listings
+  // are keyed by store and size, so one could take the perfume's place: skip them.
+  if (classifyProductType(product.name, fragranceName) !== null) return false;
 
   // The fragrance name must appear as a phrase, as whole words in order. Matching
   // its words in any order let "Royal Oud" pick up "Royal Princess Oud" listings.
