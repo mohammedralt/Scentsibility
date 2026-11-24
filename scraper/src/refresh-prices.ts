@@ -23,6 +23,9 @@ import { recordPriceAndAlert } from './notifications/alerts';
 import logger from './logger';
 
 const DELAY_MS = 800; // between requests to the same retailer — be polite
+// A browser kept open for a whole run grows until the job runs out of memory;
+// start a fresh one every this many listings
+const BROWSER_RECYCLE_EVERY = 150;
 
 interface Listing {
   id: string;
@@ -86,6 +89,10 @@ async function refreshRetailer(retailerKey: string, listings: Listing[], deadlin
 
       const done = stats.updated + stats.failed;
       if (done % 50 === 0) logger.info({ retailerKey, done, total: listings.length }, 'Progress');
+      if (needsBrowser && done % BROWSER_RECYCLE_EVERY === 0) {
+        await scraper.close();
+        await scraper.launch();
+      }
 
       await sleep(DELAY_MS);
     }

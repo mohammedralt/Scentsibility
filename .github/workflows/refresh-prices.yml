@@ -43,6 +43,7 @@ jobs:
       APP_URL: https://scentsibility.vercel.app
       NODE_ENV: production
       LOG_LEVEL: info
+      NODE_OPTIONS: --max-old-space-size=4096 # Node stops at about 2 GB by default
     steps:
       - uses: actions/checkout@v4
 

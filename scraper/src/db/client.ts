@@ -77,6 +77,8 @@ export async function upsertTrackedProduct(
   sizeMl: number | null,
   variantLabel: string | null = null
 ): Promise<string> {
+  // size_ml is a whole number of ml (a 0.25 oz bottle is 7ml, not 7.5)
+  if (sizeMl != null) sizeMl = Math.round(sizeMl);
   // Search results often don't say the size. NULL sizes never clash in the unique
   // key, so reuse the listing for the same product page instead of adding a copy.
   if (sizeMl == null) {
@@ -211,6 +213,7 @@ export async function fillListingSize(
   variantLabel: string | null,
   productUrl: string
 ): Promise<'filled' | 'duplicate' | 'unchanged'> {
+  if (sizeMl != null) sizeMl = Math.round(sizeMl);
   if (sizeMl == null) {
     if (variantLabel) {
       await getPool().query(
